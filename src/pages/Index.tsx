@@ -100,7 +100,7 @@ const Index = () => {
       {viewState === "idle" && (
         <>
           {/* Dashboard panels */}
-          <section className="py-8">
+          <section className="py-6">
             <div className="farol-container">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-1">
@@ -121,18 +121,7 @@ const Index = () => {
         </>
       )}
 
-      {/* Evolution message */}
-      <section className="py-8 text-center">
-        <div className="farol-container">
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            Ferramenta em evolução
-          </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            O Farol Rural está em desenvolvimento para se tornar um buscador inteligente do agro.
-            Cada busca contribui para tornar a ferramenta mais inteligente, precisa e útil ao agronegócio.
-          </p>
-        </div>
-      </section>
+      {/* Removed: Evolution message section - now displayed as diagonal badge in SearchHero */}
 
       {/* Newsletter */}
       <Newsletter />
