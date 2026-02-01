@@ -1,5 +1,6 @@
 import { X, ExternalLink, Calendar, Share2 } from "lucide-react";
 import type { NewsCard } from "@/types/farol";
+import { trackEvent } from "@/lib/api";
 
 interface NewsDrawerProps {
   card: NewsCard | null;
@@ -116,6 +117,7 @@ const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
             target="_blank"
             rel="noopener noreferrer"
             className="farol-btn-primary flex items-center gap-2"
+            onClick={() => trackEvent("external_link", { url: card.url, title: card.title })}
           >
             Ler matéria completa
             <ExternalLink className="w-4 h-4" />
