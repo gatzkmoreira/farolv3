@@ -35,28 +35,33 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
   };
 
   return (
-    <section className="py-8 md:py-14 bg-gradient-hero relative overflow-hidden">
-      {/* Diagonal badge */}
-      <div className="absolute top-6 -right-12 rotate-45 bg-accent/90 text-accent-foreground text-[10px] font-semibold px-14 py-1 shadow-sm pointer-events-none">
-        Em evolução
-      </div>
-
+    <section className="py-8 md:py-14 bg-gradient-hero">
       <div className="farol-container">
-        {/* Hero Text */}
+        {/* Hero Text with stamp */}
         <div className="text-center mb-6 md:mb-8">
-          <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-1">
-            <span className="text-secondary">Farol</span>
-            <span className="text-accent">Rural</span>
-          </h1>
+          {/* Logo with stamp positioned above */}
+          <div className="relative inline-block">
+            {/* Stamp badge - positioned above and slightly left of the logo */}
+            <div className="absolute -top-5 left-0 -rotate-12 pointer-events-none">
+              <span className="inline-block bg-accent/90 text-accent-foreground text-[9px] font-bold px-2.5 py-0.5 rounded-sm shadow-sm border border-accent/30 tracking-wide uppercase">
+                Em evolução
+              </span>
+            </div>
+            
+            <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-1">
+              <span className="text-secondary">Farol</span>
+              <span className="text-accent">Rural</span>
+            </h1>
+          </div>
           <p className="text-muted-foreground text-sm md:text-base font-medium tracking-wide">
             O caminho do agro
           </p>
         </div>
 
         {/* Search Form */}
-        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-5">
+        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-5 relative z-10">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
             <input
               type="text"
               value={query}
@@ -86,10 +91,11 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
         </form>
 
         {/* Quick Chips */}
-        <div className="flex flex-wrap justify-center gap-2 md:gap-3">
+        <div className="flex flex-wrap justify-center gap-2 md:gap-3 relative z-10">
           {defaultChips.map((chip) => (
             <button
               key={chip}
+              type="button"
               onClick={() => {
                 setQuery(chip);
                 onChipClick(chip);
