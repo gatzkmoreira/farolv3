@@ -9,7 +9,8 @@ interface NewsDrawerProps {
 }
 
 const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
-  if (!card) return null;
+  // Don't render anything if not open or no card
+  if (!isOpen || !card) return null;
 
   const renderMarkdown = (md: string) => {
     let html = md
@@ -32,23 +33,13 @@ const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
     <>
       {/* Backdrop */}
       <div 
-        className={`fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50 transition-opacity duration-300 ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        }`}
+        className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50"
         onClick={onClose}
       />
 
       {/* Centered Modal */}
-      <div 
-        className={`fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none ${
-          isOpen ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        <div 
-          className={`relative w-full max-w-2xl max-h-[85vh] bg-card rounded-2xl shadow-farol-xl pointer-events-auto transition-all duration-300 ease-out flex flex-col ${
-            isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-          }`}
-        >
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="relative w-full max-w-2xl max-h-[85vh] bg-card rounded-2xl shadow-farol-xl flex flex-col">
           {/* Header */}
           <div className="flex-shrink-0 bg-card border-b border-border px-8 py-5 flex items-center justify-between rounded-t-2xl">
             <div className="flex items-center gap-3">
