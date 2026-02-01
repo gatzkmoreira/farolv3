@@ -10,10 +10,10 @@ const Header = () => {
             <div className="w-8 h-8 rounded-lg bg-gradient-green flex items-center justify-center">
               <Lightbulb className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold">
-              <span className="text-primary">Farol</span>
-              <span className="text-secondary-foreground">Rural</span>
-            </span>
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-xl font-bold text-secondary">Farol</span>
+              <span className="text-xl font-bold text-accent">Rural</span>
+            </div>
             <span className="hidden sm:inline-flex text-[10px] px-2 py-0.5 bg-green-light text-primary rounded-full font-medium">
               2.0
             </span>

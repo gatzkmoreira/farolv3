@@ -35,25 +35,26 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
   };
 
   return (
-    <section className="py-12 md:py-20 bg-gradient-hero">
+    <section className="py-8 md:py-14 bg-gradient-hero relative overflow-hidden">
+      {/* Diagonal badge */}
+      <div className="absolute top-6 -right-12 rotate-45 bg-accent/90 text-accent-foreground text-[10px] font-semibold px-14 py-1 shadow-sm pointer-events-none">
+        Em evolução
+      </div>
+
       <div className="farol-container">
         {/* Hero Text */}
-        <div className="text-center mb-8 md:mb-12">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-light rounded-full text-sm text-primary font-medium mb-6">
-            <span className="w-2 h-2 bg-accent rounded-full animate-pulse" />
-            Ferramenta em evolução
-          </div>
-          <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-3">
-            <span className="text-primary">Farol</span>
-            <span>Rural</span>
+        <div className="text-center mb-6 md:mb-8">
+          <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-1">
+            <span className="text-secondary">Farol</span>
+            <span className="text-accent">Rural</span>
           </h1>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground text-sm md:text-base font-medium tracking-wide">
             O caminho do agro
           </p>
         </div>
 
         {/* Search Form */}
-        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-6">
+        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-5">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
