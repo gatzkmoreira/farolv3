@@ -39,16 +39,16 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
       <div className="farol-container">
         {/* Hero Text with stamp */}
         <div className="text-center mb-6 md:mb-8">
-          {/* Logo with stamp positioned above */}
+          {/* Logo with outline stamp positioned above */}
           <div className="relative inline-block">
-            {/* Stamp badge - positioned above and slightly left of the logo */}
-            <div className="absolute -top-5 left-0 -rotate-12 pointer-events-none">
-              <span className="inline-block bg-accent/90 text-accent-foreground text-[9px] font-bold px-2.5 py-0.5 rounded-sm shadow-sm border border-accent/30 tracking-wide uppercase">
+            {/* Stamp badge - outline style, positioned above with spacing */}
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 -rotate-6">
+              <span className="inline-block border border-accent/50 text-accent/70 text-[8px] font-semibold px-2 py-0.5 rounded-sm tracking-wider uppercase bg-transparent">
                 Em evolução
               </span>
             </div>
             
-            <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-1">
+            <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-1 mt-2">
               <span className="text-secondary">Farol</span>
               <span className="text-accent">Rural</span>
             </h1>
@@ -59,7 +59,7 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
         </div>
 
         {/* Search Form */}
-        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-5 relative z-10">
+        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto mb-5">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
             <input
@@ -91,7 +91,7 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
         </form>
 
         {/* Quick Chips */}
-        <div className="flex flex-wrap justify-center gap-2 md:gap-3 relative z-10">
+        <div className="flex flex-wrap justify-center gap-2 md:gap-3">
           {defaultChips.map((chip) => (
             <button
               key={chip}
