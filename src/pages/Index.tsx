@@ -11,97 +11,42 @@ import LoadingSkeleton from "@/components/farol/LoadingSkeleton";
 import Newsletter from "@/components/farol/Newsletter";
 import Footer from "@/components/farol/Footer";
 import NewsDrawer from "@/components/farol/NewsDrawer";
+import { apiFetch, trackEvent } from "@/lib/api";
 import type { SearchResponse, ViewState, NewsCard } from "@/types/farol";
-
-// Mock response for demonstration
-const mockSearchResponse: SearchResponse = {
-  intent: "cotacao",
-  answer_markdown: `## Cotação do Boi Gordo - 28 de Janeiro de 2026
-
-O preço do boi gordo **subiu 0,73%** na última sessão, atingindo **R$ 315,50 por arroba** na média nacional.
-
-### Principais destaques:
-
-- **São Paulo:** R$ 318,00/@ (+0,8%)
-- **Mato Grosso:** R$ 310,00/@ (+0,5%)
-- **Goiás:** R$ 312,50/@ (+0,6%)
-
-### Fatores de influência:
-
-1. **Demanda aquecida** para exportação, especialmente para China
-2. **Oferta restrita** devido ao período de entressafra
-3. **Dólar em alta** favorecendo exportadores
-
-### Perspectivas:
-
-A tendência de curto prazo é de **manutenção dos preços** nos patamares atuais, com possível pressão de alta caso a demanda chinesa continue forte.
-
-| Praça | Preço (R$/@) | Variação |
-|-------|--------------|----------|
-| SP Capital | 318,00 | +0,8% |
-| Triângulo Mineiro | 315,00 | +0,7% |
-| Sul de Goiás | 312,50 | +0,6% |`,
-  chips: ["Boi Gordo SP", "Exportações de carne", "Arroba hoje", "Frigoríficos"],
-  cards: [
-    {
-      id: "1",
-      title: "Preço do boi gordo atinge maior patamar em 6 meses",
-      description: "Demanda chinesa e oferta restrita impulsionam valorização da arroba no mercado brasileiro.",
-      source: "Agronews",
-      date: "28 jan 2026",
-      category: "Boi",
-      url: "#",
-      summary_markdown: "O mercado de boi gordo brasileiro registrou forte valorização nesta terça-feira, com a arroba alcançando R$ 318,00 em São Paulo, maior patamar desde julho de 2025.\n\n**Principais fatores:**\n- Demanda aquecida da China\n- Oferta restrita no período de entressafra\n- Câmbio favorável para exportações"
-    },
-    {
-      id: "2",
-      title: "Exportações de carne bovina crescem 15% em janeiro",
-      description: "China continua como principal destino, absorvendo 60% das exportações brasileiras.",
-      source: "Portal do Agronegócio",
-      date: "28 jan 2026",
-      category: "Boi",
-      url: "#"
-    },
-    {
-      id: "3",
-      title: "Frigoríficos aumentam abates para atender demanda",
-      description: "Capacidade de processamento opera em nível máximo com demanda internacional.",
-      source: "Safras & Mercado",
-      date: "27 jan 2026",
-      category: "Boi",
-      url: "#"
-    },
-    {
-      id: "4",
-      title: "Pecuaristas otimistas com perspectivas para 2026",
-      description: "Setor projeta ano positivo com preços sustentados e demanda global firme.",
-      source: "SouAgro",
-      date: "27 jan 2026",
-      category: "Política & Mercado",
-      url: "#"
-    },
-  ],
-  sources_used: ["CEPEA/Esalq", "Scot Consultoria", "ABIEC", "IBGE"],
-  timing_ms: 1247
-};
 
 const Index = () => {
   const [viewState, setViewState] = useState<ViewState>("idle");
   const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedHotNews, setSelectedHotNews] = useState<NewsCard | null>(null);
   const [isHotNewsDrawerOpen, setIsHotNewsDrawerOpen] = useState(false);
 
   const handleSearch = async (query: string) => {
     setViewState("loading");
+    setSearchError(null);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setSearchResponse(mockSearchResponse);
-    setViewState("results");
+    try {
+      const data = await apiFetch<SearchResponse>("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      
+      setSearchResponse(data);
+      setViewState("results");
+      
+      // Track search event (fire and forget)
+      trackEvent("search", { query });
+    } catch (error) {
+      console.error("[Farol] Search failed:", error);
+      setSearchError("Não foi possível realizar a busca. Tente novamente.");
+      setViewState("idle");
+    }
   };
 
   const handleChipClick = (chip: string) => {
+    // Track chip click (fire and forget)
+    trackEvent("chip_click", { chip });
     handleSearch(chip);
   };
 
@@ -120,6 +65,17 @@ const Index = () => {
         onChipClick={handleChipClick}
         isLoading={viewState === "loading"}
       />
+
+      {/* Error State */}
+      {searchError && (
+        <section className="py-4">
+          <div className="farol-container">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+              <p className="text-red-600">{searchError}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Loading State */}
       {viewState === "loading" && <LoadingSkeleton />}
