@@ -10,7 +10,7 @@ const mockCarouselNews: NewsCard[] = [
     description: "Uso de medicamentos para emagrecimento reduz apetite e muda hábitos alimentares, com impacto no consumo de proteínas.",
     source: "Agro Estadão",
     date: "19 de jan.",
-    category: "Política & Mercado",
+    category: "Pecuária",
     url: "#"
   },
   {
@@ -19,16 +19,16 @@ const mockCarouselNews: NewsCard[] = [
     description: "Abundância de oferta de soja no Brasil intensifica pressão nos preços, mas amplia liquidez nas negociações.",
     source: "Agrofy",
     date: "19 de jan.",
-    category: "Soja",
+    category: "Agricultura",
     url: "#"
   },
   {
     id: "c3",
-    title: "Exportações de milho de MT em 2025 têm queda love, com Egito, Irã e Vietnã...",
+    title: "Exportações de milho de MT em 2025 têm queda leve, com Egito, Irã e Vietnã...",
     description: "Mato Grosso embarcou 1,66 milhões de toneladas de milho em dezembro, aumento significativo.",
     source: "Portal do Agronegócio",
     date: "19 de jan.",
-    category: "Milho",
+    category: "Agricultura",
     url: "#"
   },
   {
@@ -37,7 +37,7 @@ const mockCarouselNews: NewsCard[] = [
     description: "Estatística mostra redução nos crimes rurais após três anos de operação policial intensificada.",
     source: "SouAgro",
     date: "19 de jan.",
-    category: "Política & Mercado",
+    category: "Pecuária",
     url: "#"
   },
   {
@@ -46,7 +46,7 @@ const mockCarouselNews: NewsCard[] = [
     description: "Governo define prazo final para produtores rurais escolherem regime de recolhimento do Funrural.",
     source: "Portal do Agronegócio",
     date: "19 de jan.",
-    category: "Política & Mercado",
+    category: "Agricultura",
     url: "#"
   },
   {
@@ -55,33 +55,40 @@ const mockCarouselNews: NewsCard[] = [
     description: "Sistema de frente fria deve provocar queda de temperatura e instabilidade no Sul, Sudeste e Centro-Oeste.",
     source: "SouAgro",
     date: "19 de jan.",
-    category: "Clima",
+    category: "Agricultura",
     url: "#"
   },
   {
     id: "c7",
-    title: "Cotações do café arábica recuam e robusta sobe",
-    description: "Preço do arábica caiu na bolsa de Nova York, enquanto o robusta valorizou em Londres.",
+    title: "Novas tecnologias de irrigação reduzem consumo de água em 40%",
+    description: "Sistemas inteligentes de irrigação prometem revolucionar o uso de recursos hídricos no campo.",
     source: "Safras & Mercado",
     date: "19 de jan.",
-    category: "Café",
+    category: "Tecnologia",
     url: "#"
   },
   {
     id: "c8",
-    title: "Plataforma de intel AI4Sea expande atuação",
-    description: "Solução de inteligência artificial de Santos e Vale, e agro ganha novos recursos.",
+    title: "Energia solar cresce 30% nas propriedades rurais brasileiras",
+    description: "Produtores investem em energia limpa para reduzir custos operacionais e aumentar sustentabilidade.",
     source: "AGFeed",
     date: "19 de jan.",
-    category: "Máquinas & Tecnologia",
+    category: "Energia",
     url: "#"
   },
 ];
+
+const categories = ["Todas", "Pecuária", "Agricultura", "Tecnologia", "Energia"];
 
 const NewsCarousel = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selectedCard, setSelectedCard] = useState<NewsCard | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("Todas");
+
+  const filteredNews = activeCategory === "Todas" 
+    ? mockCarouselNews 
+    : mockCarouselNews.filter(card => card.category === activeCategory);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -98,20 +105,18 @@ const NewsCarousel = () => {
     setIsDrawerOpen(true);
   };
 
-  // Split into two rows for the carousel effect
-  const topRow = mockCarouselNews.filter((_, i) => i % 2 === 0);
-  const bottomRow = mockCarouselNews.filter((_, i) => i % 2 === 1);
+  // Split filtered news into two rows for the carousel effect
+  const topRow = filteredNews.filter((_, i) => i % 2 === 0);
+  const bottomRow = filteredNews.filter((_, i) => i % 2 === 1);
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      'Soja': 'bg-amber-100 text-amber-700',
-      'Milho': 'bg-yellow-100 text-yellow-700',
-      'Café': 'bg-orange-100 text-orange-700',
-      'Clima': 'bg-blue-100 text-blue-700',
-      'Política & Mercado': 'bg-purple-100 text-purple-700',
-      'Máquinas & Tecnologia': 'bg-slate-100 text-slate-700',
+      'Pecuária': 'bg-red-100 text-red-700',
+      'Agricultura': 'bg-green-100 text-green-700',
+      'Tecnologia': 'bg-slate-100 text-slate-700',
+      'Energia': 'bg-amber-100 text-amber-700',
     };
-    return colors[category] || 'bg-green-light text-primary';
+    return colors[category] || 'bg-muted text-muted-foreground';
   };
 
   const CarouselCard = ({ card }: { card: NewsCard }) => (
@@ -159,10 +164,29 @@ const NewsCarousel = () => {
   return (
     <section className="py-8">
       <div className="farol-container">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        {/* Header with Category Filter */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <h2 className="text-xl font-semibold text-foreground">Cards de Notícias</h2>
-          <div className="flex items-center gap-2">
+          
+          {/* Category Menu - Horizontal Tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+            {categories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setActiveCategory(category)}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                  activeCategory === category
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          {/* Navigation Arrows */}
+          <div className="hidden sm:flex items-center gap-2">
             <button 
               onClick={() => scroll('left')}
               className="p-2 rounded-lg border border-border hover:bg-muted transition-colors"

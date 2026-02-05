@@ -7,7 +7,7 @@ import CotacoesPanel from "@/components/farol/CotacoesPanel";
 import WeatherWidget from "@/components/farol/WeatherWidget";
 import HotNews from "@/components/farol/HotNews";
 import NewsCarousel from "@/components/farol/NewsCarousel";
-import LoadingSkeleton from "@/components/farol/LoadingSkeleton";
+import LoadingMessages from "@/components/farol/LoadingMessages";
 import Newsletter from "@/components/farol/Newsletter";
 import Footer from "@/components/farol/Footer";
 import NewsDrawer from "@/components/farol/NewsDrawer";
@@ -78,7 +78,13 @@ const Index = () => {
       )}
 
       {/* Loading State */}
-      {viewState === "loading" && <LoadingSkeleton />}
+      {viewState === "loading" && (
+        <section className="py-6">
+          <div className="farol-container">
+            <LoadingMessages />
+          </div>
+        </section>
+      )}
 
       {/* Results State */}
       {viewState === "results" && searchResponse && (

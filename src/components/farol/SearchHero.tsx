@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface SearchHeroProps {
   onSearch: (query: string) => void;
@@ -16,16 +16,50 @@ const defaultChips = [
   "Exportações",
 ];
 
-const placeholders = [
-  "Preço do boi hoje",
-  "Clima para o milho em MT",
-  "Exportações de carne para a China",
-  "Cotação da soja em Chicago",
+const placeholderTexts = [
+  "Preço de soja Chicago",
+  "Cotação do boi gordo hoje",
+  "Previsão do tempo para minha região",
+  "Milho B3 e mercado",
 ];
 
 const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
   const [query, setQuery] = useState("");
-  const [placeholderIndex] = useState(Math.floor(Math.random() * placeholders.length));
+  const [isFocused, setIsFocused] = useState(false);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [displayedPlaceholder, setDisplayedPlaceholder] = useState("");
+  const [isTyping, setIsTyping] = useState(true);
+
+  // Typewriter effect for placeholder
+  useEffect(() => {
+    if (isFocused || query) return;
+
+    const currentFullText = placeholderTexts[placeholderIndex];
+
+    if (isTyping) {
+      if (displayedPlaceholder.length < currentFullText.length) {
+        const timeout = setTimeout(() => {
+          setDisplayedPlaceholder(currentFullText.slice(0, displayedPlaceholder.length + 1));
+        }, 60);
+        return () => clearTimeout(timeout);
+      } else {
+        const timeout = setTimeout(() => {
+          setIsTyping(false);
+        }, 2500);
+        return () => clearTimeout(timeout);
+      }
+    } else {
+      if (displayedPlaceholder.length > 0) {
+        const timeout = setTimeout(() => {
+          setDisplayedPlaceholder(displayedPlaceholder.slice(0, -1));
+        }, 30);
+        return () => clearTimeout(timeout);
+      } else {
+        setPlaceholderIndex((prev) => (prev + 1) % placeholderTexts.length);
+        setIsTyping(true);
+      }
+    }
+  }, [displayedPlaceholder, isTyping, placeholderIndex, isFocused, query]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,24 +71,23 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
   return (
     <section className="py-8 md:py-14 bg-gradient-hero">
       <div className="farol-container">
-        {/* Hero Text with stamp */}
+        {/* Hero Text with stamp - layout conforme print */}
         <div className="text-center mb-6 md:mb-8">
-          {/* Logo with outline stamp positioned above */}
           <div className="relative inline-block">
-            {/* Stamp badge - outline style, positioned above with spacing */}
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 -rotate-6">
-              <span className="inline-block border border-accent/50 text-accent/70 text-[8px] font-semibold px-2 py-0.5 rounded-sm tracking-wider uppercase bg-transparent">
-                Em evolução
+            {/* Badge acima e à esquerda do nome */}
+            <div className="absolute -top-5 left-0 -rotate-3">
+              <span className="inline-block border border-muted-foreground/40 text-muted-foreground text-[10px] font-medium px-2.5 py-0.5 rounded-sm tracking-wide bg-background/50">
+                Ferramenta em evolução
               </span>
             </div>
             
-            <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-1 mt-2">
+            <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-1 mt-3">
               <span className="text-secondary">Farol</span>
               <span className="text-accent">Rural</span>
             </h1>
           </div>
           <p className="text-muted-foreground text-sm md:text-base font-medium tracking-wide">
-            O caminho do agro
+            O caminho do agro.
           </p>
         </div>
 
@@ -66,7 +99,9 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Pesquise: ${placeholders[placeholderIndex]}`}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              placeholder={isFocused || query ? "Digite sua busca..." : `Pesquise: ${displayedPlaceholder}`}
               className="farol-search-input"
               disabled={isLoading}
             />
