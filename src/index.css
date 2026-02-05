@@ -16,8 +16,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 150 25% 15%;
 
-    /* Primary: Deep Forest Green */
-    --primary: 152 45% 22%;
+    /* Primary: Deep Forest Green - #404e32 */
+    --primary: 82 22% 25%;
     --primary-foreground: 45 30% 97%;
 
     /* Secondary: Warm Gold */
@@ -150,7 +150,7 @@
   }
 
   .farol-btn-primary {
-    @apply inline-flex items-center justify-center px-6 py-3 bg-secondary text-secondary-foreground font-semibold rounded-xl hover:opacity-90 transition-all shadow-md hover:shadow-lg;
+    @apply inline-flex items-center justify-center px-6 py-3 bg-primary text-primary-foreground font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-md hover:shadow-lg;
   }
 
   .farol-summary {
