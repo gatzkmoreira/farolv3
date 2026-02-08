@@ -1,14 +1,33 @@
-import { TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { useState, useEffect } from "react";
+import { TrendingUp, TrendingDown, DollarSign, Loader2 } from "lucide-react";
 import type { Cotacao } from "@/types/farol";
-
-const mockCotacoes: Cotacao[] = [
-  { name: "Boi Gordo", value: "R$ 315,50", change: "+2,30", changePercent: "+0,73%", isPositive: true, unit: "@" },
-  { name: "Soja", value: "R$ 128,40", change: "-1,20", changePercent: "-0,92%", isPositive: false, unit: "saca" },
-  { name: "Milho", value: "R$ 72,80", change: "+0,45", changePercent: "+0,62%", isPositive: true, unit: "saca" },
-  { name: "Café", value: "R$ 1.420", change: "+15,00", changePercent: "+1,07%", isPositive: true, unit: "saca" },
-];
+import { transformCotacoes } from "@/types/farol";
+import { apiFetch } from "@/lib/api";
 
 const CotacoesPanel = () => {
+  const [cotacoes, setCotacoes] = useState<Cotacao[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<unknown>("/api/cotacoes")
+      .then((data) => {
+        if (!cancelled) {
+          const items = transformCotacoes(data);
+          setCotacoes(items.slice(0, 6));
+          setLastUpdate(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+        }
+      })
+      .catch((err) => {
+        console.warn("[CotacoesPanel] fetch failed:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="farol-card p-5">
       {/* Header */}
@@ -19,37 +38,46 @@ const CotacoesPanel = () => {
         <h3 className="font-semibold text-foreground">Cotações</h3>
       </div>
 
-      {/* Cotações list */}
-      <div className="space-y-3">
-        {mockCotacoes.map((cotacao) => (
-          <div 
-            key={cotacao.name}
-            className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
-          >
-            <div>
-              <p className="text-sm font-medium text-foreground">{cotacao.name}</p>
-              <p className="text-xs text-muted-foreground">{cotacao.unit}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-semibold text-foreground">{cotacao.value}</p>
-              <div className={`flex items-center justify-end gap-0.5 text-xs ${
-                cotacao.isPositive ? 'text-accent' : 'text-destructive'
-              }`}>
-                {cotacao.isPositive ? (
-                  <TrendingUp className="w-3 h-3" />
-                ) : (
-                  <TrendingDown className="w-3 h-3" />
-                )}
-                <span>{cotacao.changePercent}</span>
+      {/* Content */}
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : cotacoes.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          Nenhuma cotação disponível.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {cotacoes.map((cotacao) => (
+            <div
+              key={cotacao.name}
+              className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
+            >
+              <div>
+                <p className="text-sm font-medium text-foreground">{cotacao.name}</p>
+                <p className="text-xs text-muted-foreground">{cotacao.unit}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-semibold text-foreground">{cotacao.value}</p>
+                <div className={`flex items-center justify-end gap-0.5 text-xs ${cotacao.isPositive ? 'text-accent' : 'text-destructive'
+                  }`}>
+                  {cotacao.isPositive ? (
+                    <TrendingUp className="w-3 h-3" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3" />
+                  )}
+                  <span>{cotacao.change}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Update time */}
       <p className="text-xs text-muted-foreground text-center mt-4">
-        Atualizado há 15 min
+        {lastUpdate ? `Atualizado às ${lastUpdate}` : "Carregando..."}
       </p>
     </div>
   );

@@ -34,11 +34,12 @@ const NewsGrid = ({ cards, title = "Notícias Relacionadas", chips, onChipClick 
   };
 
   // Filter cards by category (UI only - no backend change)
-  const filteredCards = activeCategory === "Todos" 
-    ? cards 
-    : cards.filter(card => 
-        card.category.toLowerCase().includes(activeCategory.toLowerCase())
-      );
+  const safeCards = cards || [];
+  const filteredCards = activeCategory === "Todos"
+    ? safeCards
+    : safeCards.filter(card =>
+      card.category?.toLowerCase().includes(activeCategory.toLowerCase())
+    );
 
   return (
     <section className="py-6">
@@ -46,7 +47,7 @@ const NewsGrid = ({ cards, title = "Notícias Relacionadas", chips, onChipClick 
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-5">
           <h2 className="text-xl font-semibold text-foreground mb-4 md:mb-0">{title}</h2>
-          
+
           {/* Chip filters from API response */}
           {chips && chips.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -63,9 +64,27 @@ const NewsGrid = ({ cards, title = "Notícias Relacionadas", chips, onChipClick 
           )}
         </div>
 
+        {/* Mobile category selector */}
+        <div className="lg:hidden mb-4">
+          <div className="flex overflow-x-auto gap-2 pb-2 -mx-4 px-4 scrollbar-hide">
+            {categories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setActiveCategory(category)}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm transition-colors ${activeCategory === category
+                  ? "bg-primary text-primary-foreground font-medium"
+                  : "bg-muted text-muted-foreground"
+                  }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Main content with sidebar */}
         <div className="flex gap-6">
-          {/* Category Sidebar */}
+          {/* Category Sidebar - desktop only */}
           <aside className="hidden lg:block w-48 flex-shrink-0">
             <div className="sticky top-24">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
@@ -76,11 +95,10 @@ const NewsGrid = ({ cards, title = "Notícias Relacionadas", chips, onChipClick 
                   <button
                     key={category}
                     onClick={() => setActiveCategory(category)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                      activeCategory === category
-                        ? "bg-primary text-primary-foreground font-medium"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${activeCategory === category
+                      ? "bg-primary text-primary-foreground font-medium"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      }`}
                   >
                     {category}
                   </button>
@@ -89,27 +107,8 @@ const NewsGrid = ({ cards, title = "Notícias Relacionadas", chips, onChipClick 
             </div>
           </aside>
 
-          {/* Mobile category selector */}
-          <div className="lg:hidden mb-4 w-full">
-            <div className="flex overflow-x-auto gap-2 pb-2 -mx-4 px-4 scrollbar-hide">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setActiveCategory(category)}
-                  className={`flex-shrink-0 px-4 py-2 rounded-full text-sm transition-colors ${
-                    activeCategory === category
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Grid */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
               {filteredCards.map((card, index) => (
                 <div key={card.id} style={{ animationDelay: `${index * 50}ms` }}>
@@ -127,7 +126,7 @@ const NewsGrid = ({ cards, title = "Notícias Relacionadas", chips, onChipClick 
       </div>
 
       {/* Drawer */}
-      <NewsDrawer 
+      <NewsDrawer
         card={selectedCard}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}

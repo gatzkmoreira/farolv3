@@ -1,4 +1,6 @@
-import { FileText, Clock, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { FileText, Clock, CheckCircle2, ThumbsUp, ThumbsDown } from "lucide-react";
+import { trackEvent } from "@/lib/api";
 
 interface SummaryBlockProps {
   markdown: string;
@@ -7,31 +9,43 @@ interface SummaryBlockProps {
 }
 
 const SummaryBlock = ({ markdown, timingMs, sources }: SummaryBlockProps) => {
-  // Simple markdown to HTML converter
+  const [feedbackGiven, setFeedbackGiven] = useState<"positive" | "negative" | null>(null);
+
+  const handleFeedback = (rating: "positive" | "negative") => {
+    if (feedbackGiven) return;
+    setFeedbackGiven(rating);
+
+    fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        rating,
+        session_id: `web-${Date.now()}`,
+        comment: "",
+      }),
+    }).catch((err) => console.warn("[Farol] Feedback send failed:", err));
+
+    trackEvent("feedback_given", { rating });
+  };
+
   const renderMarkdown = (md: string) => {
+    if (!md) return "";
+
     let html = md
-      // Headers
       .replace(/^### (.*$)/gim, '<h3>$1</h3>')
       .replace(/^## (.*$)/gim, '<h2>$1</h2>')
       .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-      // Bold
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      // Italic
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      // Lists
       .replace(/^\- (.*$)/gim, '<li>$1</li>')
       .replace(/^\* (.*$)/gim, '<li>$1</li>')
       .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
-      // Line breaks
       .replace(/\n\n/g, '</p><p>')
       .replace(/\n/g, '<br/>');
-    
-    // Wrap in paragraph
+
     html = '<p>' + html + '</p>';
-    
-    // Wrap consecutive li elements in ul
     html = html.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
-    
+
     return html;
   };
 
@@ -59,7 +73,7 @@ const SummaryBlock = ({ markdown, timingMs, sources }: SummaryBlockProps) => {
           </div>
 
           {/* Content */}
-          <div 
+          <div
             className="farol-summary"
             dangerouslySetInnerHTML={{ __html: renderMarkdown(markdown) }}
           />
@@ -73,7 +87,7 @@ const SummaryBlock = ({ markdown, timingMs, sources }: SummaryBlockProps) => {
               </div>
               <div className="flex flex-wrap gap-2">
                 {sources.map((source, index) => (
-                  <span 
+                  <span
                     key={index}
                     className="px-3 py-1 bg-muted rounded-full text-xs font-medium text-muted-foreground"
                   >
@@ -83,6 +97,43 @@ const SummaryBlock = ({ markdown, timingMs, sources }: SummaryBlockProps) => {
               </div>
             </div>
           )}
+
+          {/* Feedback */}
+          <div className="mt-6 pt-4 border-t border-border flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {feedbackGiven
+                ? "Obrigado pelo feedback! 🙏"
+                : "Essa resposta foi útil?"}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleFeedback("positive")}
+                disabled={feedbackGiven !== null}
+                className={`p-2 rounded-lg transition-colors ${feedbackGiven === "positive"
+                    ? "bg-green-100 text-green-600"
+                    : feedbackGiven
+                      ? "opacity-30 cursor-not-allowed"
+                      : "hover:bg-green-50 text-muted-foreground hover:text-green-600"
+                  }`}
+                title="Útil"
+              >
+                <ThumbsUp className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleFeedback("negative")}
+                disabled={feedbackGiven !== null}
+                className={`p-2 rounded-lg transition-colors ${feedbackGiven === "negative"
+                    ? "bg-red-100 text-red-600"
+                    : feedbackGiven
+                      ? "opacity-30 cursor-not-allowed"
+                      : "hover:bg-red-50 text-muted-foreground hover:text-red-600"
+                  }`}
+                title="Não útil"
+              >
+                <ThumbsDown className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </section>

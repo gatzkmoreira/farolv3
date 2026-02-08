@@ -1,41 +1,46 @@
-import { Flame, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Flame, ArrowRight, Loader2 } from "lucide-react";
 import type { NewsCard } from "@/types/farol";
+import { transformCards } from "@/types/farol";
+import { apiFetch } from "@/lib/api";
 
 interface HotNewsProps {
   onCardClick: (card: NewsCard) => void;
 }
 
-const mockHotNews: NewsCard[] = [
-  {
-    id: "1",
-    title: "Exportações de carne bovina batem recorde em janeiro",
-    description: "Brasil exportou 180 mil toneladas no primeiro mês do ano",
-    source: "Agronews",
-    date: "Há 2h",
-    category: "Boi",
-    url: "#"
-  },
-  {
-    id: "2",
-    title: "Soja: preços sobem com demanda chinesa aquecida",
-    description: "Chicago fecha em alta pelo terceiro dia consecutivo",
-    source: "SouAgro",
-    date: "Há 3h",
-    category: "Soja",
-    url: "#"
-  },
-  {
-    id: "3",
-    title: "Safra de milho 2025 tem projeção revisada para cima",
-    description: "Conab eleva estimativa para 120 milhões de toneladas",
-    source: "Portal do Agro",
-    date: "Há 5h",
-    category: "Milho",
-    url: "#"
-  },
-];
+function formatRelativeDate(isoDate: string): string {
+  const now = Date.now();
+  const then = new Date(isoDate).getTime();
+  const diffMs = now - then;
+  const diffH = Math.floor(diffMs / 3_600_000);
+  if (diffH < 1) return "Agora";
+  if (diffH < 24) return `Há ${diffH}h`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD === 1) return "Ontem";
+  if (diffD < 7) return `Há ${diffD}d`;
+  return new Date(isoDate).toLocaleDateString("pt-BR", { day: "numeric", month: "short" });
+}
 
 const HotNews = ({ onCardClick }: HotNewsProps) => {
+  const [cards, setCards] = useState<NewsCard[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<unknown>("/api/cards?limit=3")
+      .then((data) => {
+        if (!cancelled) setCards(transformCards(data));
+      })
+      .catch((err) => {
+        console.warn("[HotNews] fetch failed:", err);
+        if (!cancelled) setCards([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="farol-card p-5">
       {/* Header */}
@@ -49,35 +54,45 @@ const HotNews = ({ onCardClick }: HotNewsProps) => {
         <span className="text-xs text-muted-foreground">Ao vivo</span>
       </div>
 
-      {/* News list */}
-      <div className="space-y-4">
-        {mockHotNews.map((news, index) => (
-          <article 
-            key={news.id}
-            onClick={() => onCardClick(news)}
-            className="group cursor-pointer"
-          >
-            <div className="flex gap-3">
-              <span className="text-lg font-bold text-muted-foreground/50">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2 mb-1">
-                  {news.title}
-                </h4>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{news.source}</span>
-                  <span>•</span>
-                  <span>{news.date}</span>
+      {/* Content */}
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : cards.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          Nenhuma notícia disponível.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {cards.map((news, index) => (
+            <article
+              key={news.id}
+              onClick={() => onCardClick(news)}
+              className="group cursor-pointer"
+            >
+              <div className="flex gap-3">
+                <span className="text-lg font-bold text-muted-foreground/50">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2 mb-1">
+                    {news.title}
+                  </h4>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{news.source}</span>
+                    <span>•</span>
+                    <span>{formatRelativeDate(news.date)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            {index < mockHotNews.length - 1 && (
-              <div className="h-px bg-border/50 mt-4" />
-            )}
-          </article>
-        ))}
-      </div>
+              {index < cards.length - 1 && (
+                <div className="h-px bg-border/50 mt-4" />
+              )}
+            </article>
+          ))}
+        </div>
+      )}
 
       {/* See more */}
       <button className="w-full mt-4 pt-3 border-t border-border flex items-center justify-center gap-1 text-sm text-primary font-medium hover:gap-2 transition-all">

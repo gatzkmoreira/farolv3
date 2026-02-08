@@ -48,8 +48,24 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         );
     }
 
+    // Route mapping: Frontend path → n8n webhook path
+    // The n8n workflows use custom paths, not /api/* pattern
+    const ROUTE_MAPPING: Record<string, string> = {
+        "/api/search": "/farol-search",
+        "/api/weather": "/weather",
+        "/api/cards": "/cards",
+        "/api/cotacoes": "/cotacoes",
+        "/api/event": "/event",
+        "/api/feedback": "/feedback",
+        "/api/healthcheck": "/ping",
+    };
+
+    // Get the mapped path or use the original (strip /api prefix)
+    const apiPath = url.pathname;
+    const n8nPath = ROUTE_MAPPING[apiPath] ?? apiPath.replace(/^\/api/, "");
+
     // Build n8n webhook URL
-    const n8nUrl = `${N8N_WEBHOOK_BASE}${url.pathname}${url.search}`;
+    const n8nUrl = `${N8N_WEBHOOK_BASE}${n8nPath}${url.search}`;
 
     try {
         // Forward the request to n8n

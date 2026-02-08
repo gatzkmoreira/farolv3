@@ -2,34 +2,44 @@ import { useEffect, useState } from "react";
 import { Cloud, Sun, CloudRain, CloudSun, Loader2 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
-interface WeatherAPIResponse {
-  location?: string;
+interface WeatherAPIData {
+  location?: { name?: string; uf?: string } | string;
+  current?: {
+    temp?: number;
+    temp_min?: number;
+    temp_max?: number;
+    humidity?: number;
+    condition?: string;
+  };
+  forecast?: { date?: string; temp_min?: number; temp_max?: number; condition?: string; rain_prob?: number }[];
+  // Flat fallback shape
   temperature?: number | string;
   condition?: string;
   max_temp?: number | string;
   min_temp?: number | string;
   rain_chance?: number | string;
-  icon?: string;
 }
 
-// Fallback data when API fails
-const fallbackWeather: WeatherAPIResponse = {
+const formatLocation = (loc?: { name?: string; uf?: string } | string): string => {
+  if (!loc) return "Brasil";
+  if (typeof loc === "string") return loc;
+  return `${loc.name || ""}${loc.uf ? `, ${loc.uf}` : ""}`;
+};
+
+const fallbackWeather: WeatherAPIData = {
   location: "Brasil • Região Centro-Oeste",
-  temperature: 28,
-  condition: "Parcialmente nublado",
-  max_temp: 32,
-  min_temp: 22,
-  rain_chance: 20,
+  current: { temp: 28, condition: "Parcialmente nublado", temp_max: 32, temp_min: 22 },
+  forecast: [{ rain_prob: 20, condition: "parcialmente nublado" }],
 };
 
 const WeatherWidget = () => {
-  const [weather, setWeather] = useState<WeatherAPIResponse | null>(null);
+  const [weather, setWeather] = useState<WeatherAPIData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchWeather = async () => {
       try {
-        const data = await apiFetch<WeatherAPIResponse>("/api/weather");
+        const data = await apiFetch<WeatherAPIData>("/api/weather");
         setWeather(data);
       } catch (error) {
         console.warn("[Farol] Weather fetch failed, using fallback:", error);
@@ -42,19 +52,18 @@ const WeatherWidget = () => {
     fetchWeather();
   }, []);
 
-  const weatherIcons = {
-    sunny: Sun,
-    cloudy: Cloud,
-    rainy: CloudRain,
-    partlyCloudy: CloudSun,
-  };
+  // Extract values — handle both nested (current) and flat shapes
+  const temp = weather?.current?.temp ?? weather?.temperature ?? "--";
+  const condition = weather?.current?.condition ?? weather?.condition ?? "";
+  const maxTemp = weather?.current?.temp_max ?? weather?.max_temp ?? "--";
+  const minTemp = weather?.current?.temp_min ?? weather?.min_temp ?? "--";
+  const rainChance = weather?.forecast?.[0]?.rain_prob ?? weather?.rain_chance ?? "--";
 
-  // Map condition to icon
   const getIcon = () => {
-    const condition = weather?.condition?.toLowerCase() || "";
-    if (condition.includes("chuva") || condition.includes("rain")) return CloudRain;
-    if (condition.includes("nublado") || condition.includes("cloud")) return CloudSun;
-    if (condition.includes("sol") || condition.includes("sun") || condition.includes("claro")) return Sun;
+    const c = String(condition).toLowerCase();
+    if (c.includes("chuva") || c.includes("rain")) return CloudRain;
+    if (c.includes("nublado") || c.includes("cloud") || c.includes("nuvens")) return CloudSun;
+    if (c.includes("sol") || c.includes("sun") || c.includes("claro")) return Sun;
     return CloudSun;
   };
 
@@ -76,27 +85,25 @@ const WeatherWidget = () => {
         </div>
       ) : (
         <>
-          {/* Weather content */}
           <div className="text-center py-4">
             <Icon className="w-12 h-12 text-secondary mx-auto mb-3" />
             <p className="text-3xl font-bold text-foreground mb-1">
-              {weather?.temperature}°C
+              {temp}°C
             </p>
             <p className="text-sm text-muted-foreground mb-1">
-              {weather?.condition}
+              {condition}
             </p>
             <p className="text-xs text-muted-foreground">
-              {weather?.location}
+              {formatLocation(weather?.location)}
             </p>
           </div>
 
-          {/* Forecast hint */}
           <div className="mt-4 pt-3 border-t border-border">
             <p className="text-xs text-muted-foreground text-center">
-              🌡️ Máx: {weather?.max_temp}°C • Mín: {weather?.min_temp}°C
+              🌡️ Máx: {maxTemp}°C • Mín: {minTemp}°C
             </p>
             <p className="text-xs text-muted-foreground text-center mt-1">
-              💧 Chance de chuva: {weather?.rain_chance}%
+              💧 Chance de chuva: {rainChance}%
             </p>
           </div>
         </>
