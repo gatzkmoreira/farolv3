@@ -1,0 +1,342 @@
+{
+    "id": "XoJqFZHjxBtvD8Cq",
+    "name": "FarolV3 - API Search",
+    "active": true,
+    "createdAt": "2026-02-05T02:52:54.567Z",
+    "updatedAt": "2026-02-05T15:05:22.701Z",
+    "nodes": [
+        {
+            "id": "webhook_1",
+            "name": "Webhook Search",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                112,
+                304
+            ],
+            "webhookId": "farol-search-v3",
+            "onError": "continueRegularOutput",
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "farol-search",
+                "responseMode": "responseNode",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "id": "code_session",
+            "name": "Create Session",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                304,
+                304
+            ],
+            "parameters": {
+                "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst query = body.query || body.q || '';\nconst sessionKey = body.session_id || body.sessionKey || `anon_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;\nconst startTime = Date.now();\n\nreturn [{\n  json: {\n    query: query.trim(),\n    sessionKey,\n    startTime,\n    clientMeta: {\n      userAgent: $input.first().json.headers?.['user-agent'] || 'unknown',\n      timestamp: new Date().toISOString()\n    }\n  }\n}];"
+            }
+        },
+        {
+            "id": "code_classify",
+            "name": "Classify Intent",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                512,
+                304
+            ],
+            "parameters": {
+                "jsCode": "const data = $input.first().json;\nconst query = data.query.toLowerCase();\n\nconst cotacaoPatterns = [\n  /\\b(preco|cotacao|quanto|valor|custa|arroba|saca)\\b.*\\b(boi|vaca|bezerro|soja|milho|cafe|leite|trigo|algodao)\\b/i,\n  /\\b(boi|vaca|bezerro|soja|milho|cafe|leite|trigo|algodao)\\b.*\\b(preco|cotacao|quanto|valor|custa|arroba|saca)\\b/i,\n  /\\b(boi gordo|arroba|indicador|cepea)\\b/i\n];\n\nconst climaPatterns = [\n  /\\b(tempo|clima|previsao|chuva|chuvas|temperatura|sol|nublado|frio|calor|geada|seca|umidade)\\b/i,\n  /\\b(chover|chove|vai chover)\\b.*\\b(hoje|amanha|semana|proximos dias)\\b/i\n];\n\nlet intent = 'geral';\nlet confidence = 0.6;\n\nfor (const pattern of cotacaoPatterns) {\n  if (pattern.test(query)) {\n    intent = 'cotacao';\n    confidence = 0.95;\n    break;\n  }\n}\n\nif (intent === 'geral') {\n  for (const pattern of climaPatterns) {\n    if (pattern.test(query)) {\n      intent = 'clima';\n      confidence = 0.92;\n      break;\n    }\n  }\n}\n\nreturn [{\n  json: {\n    ...data,\n    intent,\n    confidence\n  }\n}];"
+            }
+        },
+        {
+            "id": "switch_intent",
+            "name": "Route Intent",
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3.4,
+            "position": [
+                704,
+                304
+            ],
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": false,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "id": "1",
+                                        "leftValue": "={{ $json.intent }}",
+                                        "operator": {
+                                            "operation": "equals",
+                                            "type": "string"
+                                        },
+                                        "rightValue": "cotacao"
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "COTACAO"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": false,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "id": "2",
+                                        "leftValue": "={{ $json.intent }}",
+                                        "operator": {
+                                            "operation": "equals",
+                                            "type": "string"
+                                        },
+                                        "rightValue": "clima"
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "CLIMA"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": false,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "id": "3",
+                                        "leftValue": "={{ $json.intent }}",
+                                        "operator": {
+                                            "operation": "equals",
+                                            "type": "string"
+                                        },
+                                        "rightValue": "geral"
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "GERAL"
+                        }
+                    ]
+                },
+                "options": {
+                    "fallbackOutput": "extra",
+                    "ignoreCase": true
+                }
+            }
+        },
+        {
+            "id": "code_cotacao",
+            "name": "Handle COTACAO",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                912,
+                112
+            ],
+            "parameters": {
+                "jsCode": "const data = $input.first().json;\nconst query = data.query.toLowerCase();\n\n// Mapeamento de produtos\nconst produtos = {\n  'boi gordo': 'boi_gordo', 'boi': 'boi_gordo', 'arroba': 'boi_gordo',\n  'soja': 'soja', 'milho': 'milho', 'cafe': 'cafe_arabica',\n  'leite': 'leite', 'trigo': 'trigo'\n};\n\nconst pracas = {\n  'sp': 'SP', 'ms': 'MS', 'mt': 'MT', 'go': 'GO', 'pr': 'PR', 'rs': 'RS', 'mg': 'MG', 'ba': 'BA'\n};\n\nconst pracaDefault = {\n  'boi_gordo': 'SP', 'soja': 'PR', 'milho': 'SP', 'cafe_arabica': 'SP', 'leite': 'MG'\n};\n\nlet produto = null;\nlet praca = null;\n\nfor (const [key, value] of Object.entries(produtos)) {\n  if (query.includes(key)) { produto = value; break; }\n}\nfor (const [key, value] of Object.entries(pracas)) {\n  if (query.includes(key)) { praca = value; break; }\n}\n\nif (!produto) produto = 'boi_gordo';\nif (!praca) praca = pracaDefault[produto] || 'SP';\n\n// Buscar cotacao no Supabase via REST API\nconst SUPABASE_URL = $env.SUPABASE_URL || 'https://uvrvlesjgyimspdsghmw.supabase.co';\nconst SUPABASE_ANON_KEY = $env.SUPABASE_ANON_KEY || '';\n\nlet quotes = [];\nlet answer = '';\nlet sources = [];\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${SUPABASE_URL}/rest/v1/quotes_latest?product=eq.${produto}&select=*`,\n    headers: {\n      'apikey': SUPABASE_ANON_KEY,\n      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`\n    }\n  });\n  quotes = response;\n  \n  if (quotes && quotes.length > 0) {\n    const q = quotes.find(x => x.praca === praca) || quotes[0];\n    const precoFormatado = q.price ? `R$ ${parseFloat(q.price).toFixed(2)}` : 'N/D';\n    const unidade = q.unit || '@';\n    const dataFormatada = q.quote_date || 'hoje';\n    const produtoNome = q.product ? q.product.replace('_', ' ') : produto;\n    \n    // System prompt para COTACAO\n    const systemPrompt = `Voce e o FarolRural, assistente especializado em agronegocio brasileiro.\n\nSUA MISSAO: Ensinar o produtor a ler o mercado. Nao apenas informar precos.\n\nESTILO DE ESCRITA:\n- Texto fluido como analise de mercado profissional\n- Paragrafos conectados, cada um puxando o proximo\n- Explicar causa e efeito: por que o preco esta assim\n- Tom de analista conversando com profissional do agro\n\nESTRUTURA:\n1. Preco + praca + condicao + fonte (1a linha direta)\n2. Contexto de mercado (oferta, demanda, custos, cambio) - 2-3 paragrafos\n3. O que acompanhar (2-3 pontos em bullets)\n4. Fonte e horario\n\nPROIBIDO: comecar com 'Claro!', usar emojis, listas longas, texto robotico.`;\n\n    const userPrompt = `Pergunta do produtor: ${data.query}\n\nDADOS DE COTACAO:\n- Produto: ${produtoNome}\n- Praca: ${q.praca || praca}\n- Preco: ${precoFormatado}/${unidade}\n- Data: ${dataFormatada}\n- Variacao dia: ${q.change_day ? `R$ ${parseFloat(q.change_day).toFixed(2)}` : 'N/D'}\n- Fonte: ${q.source_url ? 'Scot Consultoria' : 'Base FarolRural'}\n\nGere a resposta seguindo a estrutura definida.`;\n\n    // Chamar OpenAI\n    const OPENAI_API_KEY = $env.OPENAI_API_KEY || '';\n    \n    if (OPENAI_API_KEY) {\n      const aiResponse = await this.helpers.httpRequest({\n        method: 'POST',\n        url: 'https://api.openai.com/v1/chat/completions',\n        headers: {\n          'Authorization': `Bearer ${OPENAI_API_KEY}`,\n          'Content-Type': 'application/json'\n        },\n        body: JSON.stringify({\n          model: 'gpt-4o-mini',\n          messages: [\n            { role: 'system', content: systemPrompt },\n            { role: 'user', content: userPrompt }\n          ],\n          max_tokens: 600,\n          temperature: 0.3\n        })\n      });\n      \n      answer = aiResponse.choices?.[0]?.message?.content || `${produtoNome} em ${q.praca || praca}: ${precoFormatado}/${unidade} (${dataFormatada}).`;\n    } else {\n      // Fallback sem OpenAI\n      answer = `${produtoNome} em ${q.praca || praca}: ${precoFormatado}/${unidade} (${dataFormatada}).\\n\\n`;\n      if (q.change_day) {\n        const variacao = parseFloat(q.change_day);\n        const sinal = variacao >= 0 ? '+' : '';\n        answer += `Variacao no dia: ${sinal}R$ ${variacao.toFixed(2)}/${unidade}.\\n\\n`;\n      }\n      answer += `Fonte: Scot Consultoria.`;\n    }\n    \n    sources.push({ name: 'Scot Consultoria', url: q.source_url || '#', date: q.quote_date });\n  } else {\n    answer = `Nao encontramos cotacao para ${produto.replace('_', ' ')} em ${praca} no momento. Tente outra praca ou produto.`;\n    sources.push({ name: 'Base FarolRural', url: '#' });\n  }\n} catch (error) {\n  answer = `Erro ao buscar cotacao: ${error.message}. Tente novamente.`;\n  sources.push({ name: 'Erro', url: '#' });\n}\n\nreturn [{\n  json: {\n    ...data,\n    handler: 'cotacao',\n    extracted: { produto, praca },\n    answer,\n    chips: ['Cotacao boi gordo MS', 'Cotacao soja PR', 'Indicador Cepea'],\n    sources,\n    rawQuotes: quotes\n  }\n}];"
+            }
+        },
+        {
+            "id": "code_clima",
+            "name": "Handle CLIMA",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                912,
+                304
+            ],
+            "parameters": {
+                "jsCode": "const data = $input.first().json;\nconst query = data.query.toLowerCase();\n\n// Mapeamento de localizacoes\nconst locations = {\n  'sao paulo': { lat: -23.55, lon: -46.63, name: 'Sao Paulo', uf: 'SP' },\n  'sp': { lat: -23.55, lon: -46.63, name: 'Sao Paulo', uf: 'SP' },\n  'cuiaba': { lat: -15.60, lon: -56.10, name: 'Cuiaba', uf: 'MT' },\n  'sorriso': { lat: -12.55, lon: -55.71, name: 'Sorriso', uf: 'MT' },\n  'campo grande': { lat: -20.44, lon: -54.65, name: 'Campo Grande', uf: 'MS' },\n  'ms': { lat: -20.44, lon: -54.65, name: 'Campo Grande', uf: 'MS' },\n  'goiania': { lat: -16.68, lon: -49.25, name: 'Goiania', uf: 'GO' },\n  'go': { lat: -16.68, lon: -49.25, name: 'Goiania', uf: 'GO' },\n  'ribeirao preto': { lat: -21.17, lon: -47.81, name: 'Ribeirao Preto', uf: 'SP' },\n  'londrina': { lat: -23.31, lon: -51.16, name: 'Londrina', uf: 'PR' },\n  'pr': { lat: -25.43, lon: -49.27, name: 'Curitiba', uf: 'PR' },\n  'uberaba': { lat: -19.75, lon: -47.93, name: 'Uberaba', uf: 'MG' },\n  'mg': { lat: -19.92, lon: -43.94, name: 'Belo Horizonte', uf: 'MG' },\n  'rio verde': { lat: -17.80, lon: -50.92, name: 'Rio Verde', uf: 'GO' },\n  'sinop': { lat: -11.86, lon: -55.50, name: 'Sinop', uf: 'MT' },\n  'lucas do rio verde': { lat: -13.05, lon: -55.91, name: 'Lucas do Rio Verde', uf: 'MT' },\n  'mt': { lat: -15.60, lon: -56.10, name: 'Cuiaba', uf: 'MT' }\n};\n\nlet location = { lat: -23.55, lon: -46.63, name: 'Sao Paulo', uf: 'SP' };\nfor (const [key, value] of Object.entries(locations)) {\n  if (query.includes(key)) { location = value; break; }\n}\n\nlet answer = '';\nlet sources = [];\nlet weatherData = null;\n\n// OpenWeather API Key\nconst OPENWEATHER_API_KEY = $env.OPENWEATHER_API_KEY || '';\n\ntry {\n  const weatherResponse = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `https://api.openweathermap.org/data/2.5/weather?lat=${location.lat}&lon=${location.lon}&units=metric&lang=pt_br&appid=${OPENWEATHER_API_KEY}`\n  });\n  \n  weatherData = { current: weatherResponse };\n  \n  const temp = Math.round(weatherResponse.main?.temp || 0);\n  const feels = Math.round(weatherResponse.main?.feels_like || 0);\n  const humidity = weatherResponse.main?.humidity || 0;\n  const description = weatherResponse.weather?.[0]?.description || 'tempo variavel';\n  const windSpeed = Math.round((weatherResponse.wind?.speed || 0) * 3.6);\n  const tempMin = Math.round(weatherResponse.main?.temp_min || 0);\n  const tempMax = Math.round(weatherResponse.main?.temp_max || 0);\n  \n  // System prompt CLIMA\n  const systemPrompt = `Voce e o FarolRural, assistente especializado em agronegocio brasileiro.\n\nSUA MISSAO: Traduzir clima em impacto agricola. Ajudar o produtor a tomar decisoes.\n\nESTILO DE ESCRITA:\n- Texto fluido com foco em impacto pratico\n- Localizacao sempre clara (cidade/regiao)\n- Alertas em destaque quando existirem (use emoji alerta apenas)\n- Conectar previsao com operacoes de campo\n\nESTRUTURA:\n1. Previsao direta (localizacao + condicao atual)\n2. Descricao do cenario climatico\n3. Alerta climatico (se houver risco)\n4. Impacto agricola local (lavoura, pecuaria, operacoes)\n5. Contexto recente (o que vinha acontecendo)\n6. Pontos de atencao (maximo 3 bullets)\n7. Fontes: OpenWeather + INMET\n\nOBRIGATORIO:\n- Sempre mencionar impacto em lavouras E pecuaria\n- Destacar janelas de oportunidade ou risco\n- Primeira linha direta, sem 'Claro!' ou saudacoes`;\n\n  const userPrompt = `Pergunta do produtor: ${data.query}\n\nDADOS CLIMATICOS ATUAIS para ${location.name} (${location.uf}):\n- Temperatura: ${temp}C (sensacao ${feels}C)\n- Minima/Maxima: ${tempMin}C / ${tempMax}C\n- Condicao: ${description}\n- Umidade: ${humidity}%\n- Vento: ${windSpeed} km/h\n- Coordenadas: ${location.lat}, ${location.lon}\n\nGere a resposta seguindo a estrutura definida. Use dados reais acima.`;\n\n  // Chamar OpenAI\n  const OPENAI_API_KEY = $env.OPENAI_API_KEY || '';\n  \n  if (OPENAI_API_KEY) {\n    const aiResponse = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://api.openai.com/v1/chat/completions',\n      headers: {\n        'Authorization': `Bearer ${OPENAI_API_KEY}`,\n        'Content-Type': 'application/json'\n      },\n      body: JSON.stringify({\n        model: 'gpt-4o-mini',\n        messages: [\n          { role: 'system', content: systemPrompt },\n          { role: 'user', content: userPrompt }\n        ],\n        max_tokens: 700,\n        temperature: 0.3\n      })\n    });\n    \n    answer = aiResponse.choices?.[0]?.message?.content || `Em ${location.name} (${location.uf}), temperatura de ${temp}C com ${description}.`;\n  } else {\n    answer = `Em ${location.name} (${location.uf}), temperatura de ${temp}C (sensacao de ${feels}C) com ${description}. Umidade em ${humidity}% e vento de ${windSpeed} km/h.`;\n  }\n  \n  sources.push({ name: 'OpenWeather', url: 'https://openweathermap.org', date: new Date().toISOString().split('T')[0] });\n} catch (error) {\n  answer = `Erro ao buscar clima: ${error.message}. Tente novamente.`;\n  sources.push({ name: 'Erro', url: '#' });\n}\n\nreturn [{\n  json: {\n    ...data,\n    handler: 'clima',\n    location,\n    answer,\n    chips: ['Previsao 7 dias', 'Alertas INMET', 'Clima MATOPIBA'],\n    sources,\n    weatherData\n  }\n}];"
+            }
+        },
+        {
+            "id": "code_geral",
+            "name": "Handle GERAL",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                912,
+                512
+            ],
+            "parameters": {
+                "jsCode": "const data = $input.first().json;\nconst query = data.query.toLowerCase();\n\n// Supabase config\nconst SUPABASE_URL = $env.SUPABASE_URL || 'https://uvrvlesjgyimspdsghmw.supabase.co';\nconst SUPABASE_ANON_KEY = $env.SUPABASE_ANON_KEY || '';\n\nlet answer = '';\nlet sources = [];\nlet cards = [];\nlet ragContext = '';\n\n// Keywords para categorizar a busca\nconst categoryMap = {\n  'boi': 'pecuaria_corte', 'gado': 'pecuaria_corte', 'pecuaria': 'pecuaria_corte',\n  'carne': 'pecuaria_corte', 'frigorifico': 'pecuaria_corte', 'abate': 'pecuaria_corte',\n  'soja': 'graos', 'milho': 'graos', 'grao': 'graos', 'colheita': 'graos',\n  'safra': 'graos', 'plantio': 'graos',\n  'chuva': 'clima', 'seca': 'clima', 'tempo': 'clima', 'clima': 'clima', 'matopiba': 'clima',\n  'leite': 'pecuaria_leite', 'cafe': 'cafe', 'algodao': 'fibras'\n};\n\nlet targetCategory = null;\nfor (const [keyword, category] of Object.entries(categoryMap)) {\n  if (query.includes(keyword)) {\n    targetCategory = category;\n    break;\n  }\n}\n\ntry {\n  // Buscar cards relevantes\n  let cardsUrl = `${SUPABASE_URL}/rest/v1/cards?status=eq.published&select=*&order=published_at.desc&limit=5`;\n  if (targetCategory) {\n    cardsUrl = `${SUPABASE_URL}/rest/v1/cards?status=eq.published&category=eq.${targetCategory}&select=*&order=published_at.desc&limit=3`;\n  }\n  \n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: cardsUrl,\n    headers: {\n      'apikey': SUPABASE_ANON_KEY,\n      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`\n    }\n  });\n  \n  cards = response || [];\n  \n  // Se nao encontrou na categoria, busca todos\n  if (cards.length === 0 && targetCategory) {\n    const fallbackResponse = await this.helpers.httpRequest({\n      method: 'GET',\n      url: `${SUPABASE_URL}/rest/v1/cards?status=eq.published&select=*&order=published_at.desc&limit=5`,\n      headers: {\n        'apikey': SUPABASE_ANON_KEY,\n        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`\n      }\n    });\n    cards = fallbackResponse || [];\n  }\n  \n  // Montar contexto RAG\n  if (cards.length > 0) {\n    ragContext = cards.map((c, i) => \n      `[${i+1}] ${c.title}\\n${c.deck || ''}\\n${c.body_markdown || ''}\\nFonte: ${c.source_name || 'FarolRural'}`\n    ).join('\\n\\n---\\n\\n');\n    \n    sources = cards.map(c => ({\n      name: c.source_name || 'FarolRural',\n      url: c.source_url || '#',\n      date: c.published_at ? c.published_at.split('T')[0] : null\n    }));\n  } else {\n    ragContext = 'Nenhum conteudo especifico encontrado na base de conhecimento.';\n  }\n  \n  // System prompt GERAL\n  const systemPrompt = `Voce e o FarolRural, assistente especializado em agronegocio brasileiro.\n\nSUA MISSAO: Ensinar o produtor a ler o mercado. Conectar informacoes, mostrar impactos, antecipar cenarios.\n\nESTILO DE ESCRITA:\n- Texto fluido e bem escrito como analise editorial\n- Paragrafos conectados naturalmente\n- Explicar o \"por que\" de cada movimento\n- Conectar fatores: clima, cambio, graos, credito, exportacao\n- Trazer informacoes que agregam valor, mesmo sem perguntar\n\nESTRUTURA:\n1. Resposta direta ao tema\n2. Contexto analitico (o que esta acontecendo e por que)\n3. Conexoes com outros fatores do agro\n4. Insight, risco ou oportunidade\n5. Pontos de atencao (maximo 3 bullets)\n6. Fontes\n\nPROIBIDO:\n- Comecar com 'Claro!' ou saudacoes\n- Respostas superficiais ou apenas informativas\n- Texto generico de IA\n- Listas substituindo explicacao`;\n\n  const userPrompt = `Pergunta do produtor: ${data.query}\n\nBASE DE CONHECIMENTO FAROLRURAL:\n${ragContext}\n\nGere uma resposta seguindo a estrutura definida. Use as informacoes da base de conhecimento para fundamentar sua analise. Se o conteudo nao cobrir exatamente a pergunta, use seu conhecimento de mercado agricola para complementar.`;\n\n  // Chamar OpenAI\n  const OPENAI_API_KEY = $env.OPENAI_API_KEY || '';\n  \n  if (OPENAI_API_KEY) {\n    const aiResponse = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://api.openai.com/v1/chat/completions',\n      headers: {\n        'Authorization': `Bearer ${OPENAI_API_KEY}`,\n        'Content-Type': 'application/json'\n      },\n      body: JSON.stringify({\n        model: 'gpt-4o-mini',\n        messages: [\n          { role: 'system', content: systemPrompt },\n          { role: 'user', content: userPrompt }\n        ],\n        max_tokens: 800,\n        temperature: 0.3\n      })\n    });\n    \n    answer = aiResponse.choices?.[0]?.message?.content || `Com base na sua pergunta sobre \"${data.query}\", aqui esta uma analise do cenario atual.`;\n  } else {\n    // Fallback sem OpenAI\n    if (cards.length > 0) {\n      const c = cards[0];\n      answer = `${c.title}\\n\\n${c.deck || ''}\\n\\n${c.body_markdown || ''}`;\n    } else {\n      answer = `Com base na sua pergunta sobre \"${data.query}\", aqui esta uma analise do cenario atual. Configure OpenAI para respostas completas.`;\n    }\n  }\n  \n  if (sources.length === 0) {\n    sources.push({ name: 'Base FarolRural', url: '#' });\n  }\n  \n} catch (error) {\n  answer = `Erro ao processar consulta: ${error.message}. Tente novamente.`;\n  sources.push({ name: 'Erro', url: '#' });\n}\n\n// Gerar chips dinamicos baseados na query\nconst chips = [];\nif (query.includes('boi') || query.includes('gado')) {\n  chips.push('Cotacao boi gordo SP', 'Exportacoes de carne', 'Preco do milho');\n} else if (query.includes('soja') || query.includes('grao')) {\n  chips.push('Cotacao soja PR', 'Colheita MT', 'Logistica de graos');\n} else {\n  chips.push('Mercado de graos', 'Pecuaria de corte', 'Noticias do agro');\n}\n\nreturn [{\n  json: {\n    ...data,\n    handler: 'geral',\n    answer,\n    chips,\n    sources,\n    ragCards: cards.length,\n    category: targetCategory\n  }\n}];"
+            }
+        },
+        {
+            "id": "code_format",
+            "name": "Format Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1104,
+                304
+            ],
+            "parameters": {
+                "jsCode": "const data = $input.first().json;\nconst timingMs = Date.now() - data.startTime;\n\nconst SUPABASE_URL = $env.SUPABASE_URL || 'https://uvrvlesjgyimspdsghmw.supabase.co';\nconst SUPABASE_ANON_KEY = $env.SUPABASE_ANON_KEY || '';\n\nlet sessionId = null;\n\ntry {\n  // 1. Criar search_session\n  const sessionRes = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${SUPABASE_URL}/rest/v1/search_sessions`,\n    headers: {\n      'apikey': SUPABASE_ANON_KEY,\n      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,\n      'Content-Type': 'application/json',\n      'Prefer': 'return=representation'\n    },\n    body: JSON.stringify({\n      session_key: data.sessionKey,\n      client_meta: { source: 'n8n', version: 'v4.0' }\n    })\n  });\n  \n  if (Array.isArray(sessionRes) && sessionRes.length > 0) {\n    sessionId = sessionRes[0].id;\n  }\n  \n  if (sessionId) {\n    // 2. Insert ai_outputs\n    await this.helpers.httpRequest({\n      method: 'POST',\n      url: `${SUPABASE_URL}/rest/v1/ai_outputs`,\n      headers: {\n        'apikey': SUPABASE_ANON_KEY,\n        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,\n        'Content-Type': 'application/json',\n        'Prefer': 'return=minimal'\n      },\n      body: JSON.stringify({\n        session_id: sessionId,\n        query: data.query || '',\n        intent: data.intent,\n        answer_markdown: data.answer?.substring(0, 5000) || '',\n        sources_used: data.sources || [],\n        chips: data.chips || [],\n        cards_returned: [],\n        timing_ms: timingMs,\n        token_in: 500,\n        token_out: 300,\n        cost_est_usd: 0.0015,\n        model_used: 'gpt-4o-mini'\n      })\n    });\n    \n    // 3. Insert events\n    await this.helpers.httpRequest({\n      method: 'POST',\n      url: `${SUPABASE_URL}/rest/v1/events`,\n      headers: {\n        'apikey': SUPABASE_ANON_KEY,\n        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,\n        'Content-Type': 'application/json',\n        'Prefer': 'return=minimal'\n      },\n      body: JSON.stringify({\n        session_id: sessionId,\n        event_type: 'search_completed',\n        payload: {\n          sessionKey: data.sessionKey,\n          intent: data.intent,\n          confidence: data.confidence,\n          timingMs,\n          query: data.query\n        }\n      })\n    });\n  }\n} catch (err) {\n  // Telemetria nao bloqueia resposta\n  console.log('Telemetry error:', err.message);\n}\n\nreturn [{\n  json: {\n    success: true,\n    data: {\n      intent: data.intent,\n      confidence: data.confidence,\n      answer: data.answer,\n      chips: data.chips || [],\n      sources: data.sources || [],\n      timingMs\n    },\n    meta: {\n      sessionKey: data.sessionKey,\n      handler: data.handler,\n      version: 'v4.0'\n    }\n  }\n}];"
+            }
+        },
+        {
+            "id": "respond_1",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.5,
+            "position": [
+                1312,
+                304
+            ],
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}",
+                "options": {
+                    "responseCode": 200,
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook Search": {
+            "main": [
+                [
+                    {
+                        "node": "Create Session",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Session": {
+            "main": [
+                [
+                    {
+                        "node": "Classify Intent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Classify Intent": {
+            "main": [
+                [
+                    {
+                        "node": "Route Intent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Route Intent": {
+            "main": [
+                [
+                    {
+                        "node": "Handle COTACAO",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Handle CLIMA",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Handle GERAL",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Handle COTACAO": {
+            "main": [
+                [
+                    {
+                        "node": "Format Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Handle CLIMA": {
+            "main": [
+                [
+                    {
+                        "node": "Format Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Handle GERAL": {
+            "main": [
+                [
+                    {
+                        "node": "Format Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "America/Sao_Paulo",
+        "saveDataErrorExecution": "all",
+        "saveDataSuccessExecution": "all",
+        "callerPolicy": "workflowsFromSameOwner"
+    }
+}

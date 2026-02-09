@@ -1,0 +1,102 @@
+{
+    "id": "wT69mJ7gFKdAXTXf",
+    "name": "FarolV3 - API Feedback",
+    "active": true,
+    "createdAt": "2026-02-05T19:00:00.000Z",
+    "updatedAt": "2026-02-05T19:30:00.000Z",
+    "nodes": [
+        {
+            "id": "webhook_feedback",
+            "name": "Feedback Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                112,
+                304
+            ],
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "feedback",
+                "responseMode": "responseNode",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "id": "code_feedback",
+            "name": "Validate & Insert",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                304,
+                304
+            ],
+            "parameters": {
+                "jsCode": "// Validate and insert feedback into Supabase\nconst SUPABASE_URL = $env.SUPABASE_URL;\nconst SUPABASE_KEY = $env.SUPABASE_SERVICE_KEY;\n\nconst body = $input.first().json.body || $input.first().json;\nconst { ai_output_id, rating, comment } = body;\n\n// Validation\nif (!ai_output_id) {\n  return [{ json: { success: false, error: 'ai_output_id is required' } }];\n}\nif (!rating || !['positive', 'negative'].includes(rating)) {\n  return [{ json: { success: false, error: 'rating must be positive or negative' } }];\n}\n\ntry {\n  // Insert feedback\n  const feedbackResponse = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${SUPABASE_URL}/rest/v1/feedback`,\n    headers: {\n      'apikey': SUPABASE_KEY,\n      'Authorization': `Bearer ${SUPABASE_KEY}`,\n      'Content-Type': 'application/json',\n      'Prefer': 'return=representation'\n    },\n    body: JSON.stringify({\n      ai_output_id,\n      rating,\n      comment: comment || null\n    })\n  });\n  \n  const feedbackId = Array.isArray(feedbackResponse) && feedbackResponse.length > 0 \n    ? feedbackResponse[0].id : null;\n  \n  // Log event\n  await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${SUPABASE_URL}/rest/v1/events`,\n    headers: {\n      'apikey': SUPABASE_KEY,\n      'Authorization': `Bearer ${SUPABASE_KEY}`,\n      'Content-Type': 'application/json',\n      'Prefer': 'return=minimal'\n    },\n    body: JSON.stringify({\n      event_type: 'feedback_given',\n      payload: { ai_output_id, rating, feedback_id: feedbackId }\n    })\n  });\n  \n  return [{ json: { success: true, data: { feedback_id: feedbackId } } }];\n} catch (error) {\n  return [{ json: { success: false, error: error.message } }];\n}"
+            }
+        },
+        {
+            "id": "respond_feedback",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.5,
+            "position": [
+                512,
+                304
+            ],
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}",
+                "options": {
+                    "responseCode": 200,
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Feedback Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Validate & Insert",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Validate & Insert": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "America/Sao_Paulo",
+        "saveDataErrorExecution": "all",
+        "saveDataSuccessExecution": "all"
+    }
+}

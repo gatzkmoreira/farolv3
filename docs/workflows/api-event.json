@@ -1,0 +1,102 @@
+{
+    "id": "QFnKJy10Tt9RQ2XK",
+    "name": "FarolV3 - API Event",
+    "active": true,
+    "createdAt": "2026-02-05T19:00:00.000Z",
+    "updatedAt": "2026-02-05T19:30:00.000Z",
+    "nodes": [
+        {
+            "id": "webhook_event",
+            "name": "Event Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                112,
+                304
+            ],
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "event",
+                "responseMode": "responseNode",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "id": "code_event",
+            "name": "Validate & Insert",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                304,
+                304
+            ],
+            "parameters": {
+                "jsCode": "// Validate and insert event into Supabase\nconst SUPABASE_URL = $env.SUPABASE_URL;\nconst SUPABASE_KEY = $env.SUPABASE_SERVICE_KEY;\n\nconst body = $input.first().json.body || $input.first().json;\nconst { session_id, event_type, payload } = body;\n\n// Validation\nconst validEventTypes = [\n  'search_started', 'search_completed', 'card_viewed',\n  'chip_clicked', 'source_clicked', 'feedback_given', 'session_ended'\n];\n\nif (!event_type || !validEventTypes.includes(event_type)) {\n  return [{ json: { success: false, error: 'Invalid event_type' } }];\n}\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: `${SUPABASE_URL}/rest/v1/events`,\n    headers: {\n      'apikey': SUPABASE_KEY,\n      'Authorization': `Bearer ${SUPABASE_KEY}`,\n      'Content-Type': 'application/json',\n      'Prefer': 'return=representation'\n    },\n    body: JSON.stringify({\n      session_id: session_id || null,\n      event_type,\n      payload: payload || {}\n    })\n  });\n  \n  const eventId = Array.isArray(response) && response.length > 0 ? response[0].id : null;\n  return [{ json: { success: true, data: { event_id: eventId } } }];\n} catch (error) {\n  return [{ json: { success: false, error: error.message } }];\n}"
+            }
+        },
+        {
+            "id": "respond_event",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.5,
+            "position": [
+                512,
+                304
+            ],
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}",
+                "options": {
+                    "responseCode": 200,
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Event Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Validate & Insert",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Validate & Insert": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "America/Sao_Paulo",
+        "saveDataErrorExecution": "all",
+        "saveDataSuccessExecution": "all"
+    }
+}

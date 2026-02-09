@@ -1,0 +1,102 @@
+{
+    "id": "kqNuQ5UatwETzN3A",
+    "name": "FarolV3 - API Cotacoes",
+    "active": true,
+    "createdAt": "2026-02-05T03:20:00.000Z",
+    "updatedAt": "2026-02-05T03:50:00.000Z",
+    "nodes": [
+        {
+            "id": "webhook_cotacoes",
+            "name": "Webhook Cotacoes",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                112,
+                304
+            ],
+            "parameters": {
+                "httpMethod": "GET",
+                "path": "cotacoes",
+                "responseMode": "responseNode",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "id": "code_fetch_quotes",
+            "name": "Fetch Quotes",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                304,
+                304
+            ],
+            "parameters": {
+                "jsCode": "// Fetch quotes from Supabase\nconst SUPABASE_URL = 'https://uvrvlesjgyimspdsghmw.supabase.co';\nconst SUPABASE_ANON_KEY = $env.SUPABASE_ANON_KEY || '';\n\nconst query = $input.first().json.query || {};\nconst product = query.product || null;\nconst praca = query.praca || null;\n\nlet url = `${SUPABASE_URL}/rest/v1/quotes_latest?select=*&order=quote_date.desc`;\nif (product) url += `&product=eq.${product}`;\nif (praca) url += `&praca=eq.${praca}`;\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url,\n    headers: {\n      'apikey': SUPABASE_ANON_KEY,\n      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`\n    }\n  });\n  \n  return [{ json: { success: true, data: response, total: response.length } }];\n} catch (error) {\n  return [{ json: { success: false, error: error.message, data: [] } }];\n}"
+            }
+        },
+        {
+            "id": "respond_cotacoes",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.5,
+            "position": [
+                512,
+                304
+            ],
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}",
+                "options": {
+                    "responseCode": 200,
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook Cotacoes": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Quotes",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Quotes": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "America/Sao_Paulo",
+        "saveDataErrorExecution": "all",
+        "saveDataSuccessExecution": "all"
+    }
+}

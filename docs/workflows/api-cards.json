@@ -1,0 +1,102 @@
+{
+    "id": "7VDcXh6dY9GC8DFx",
+    "name": "FarolV3 - API Cards",
+    "active": true,
+    "createdAt": "2026-02-05T03:16:00.000Z",
+    "updatedAt": "2026-02-05T03:45:00.000Z",
+    "nodes": [
+        {
+            "id": "webhook_cards",
+            "name": "Webhook Cards",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                112,
+                304
+            ],
+            "parameters": {
+                "httpMethod": "GET",
+                "path": "cards",
+                "responseMode": "responseNode",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "id": "code_fetch",
+            "name": "Fetch Cards",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                304,
+                304
+            ],
+            "parameters": {
+                "jsCode": "// Fetch cards from Supabase\nconst SUPABASE_URL = 'https://uvrvlesjgyimspdsghmw.supabase.co';\nconst SUPABASE_ANON_KEY = $env.SUPABASE_ANON_KEY || '';\n\nconst query = $input.first().json.query || {};\nconst category = query.category || null;\nconst limit = parseInt(query.limit) || 10;\n\nlet url = `${SUPABASE_URL}/rest/v1/cards?status=eq.published&select=*&order=published_at.desc&limit=${limit}`;\nif (category) {\n  url += `&category=eq.${category}`;\n}\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url,\n    headers: {\n      'apikey': SUPABASE_ANON_KEY,\n      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`\n    }\n  });\n  \n  return [{ json: { success: true, data: response, total: response.length } }];\n} catch (error) {\n  return [{ json: { success: false, error: error.message, data: [] } }];\n}"
+            }
+        },
+        {
+            "id": "respond_cards",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.5,
+            "position": [
+                512,
+                304
+            ],
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}",
+                "options": {
+                    "responseCode": 200,
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook Cards": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Cards",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Cards": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "America/Sao_Paulo",
+        "saveDataErrorExecution": "all",
+        "saveDataSuccessExecution": "all"
+    }
+}

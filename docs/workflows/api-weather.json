@@ -1,0 +1,102 @@
+{
+    "id": "i4qszmtXiii1VBpo",
+    "name": "FarolV3 - API Weather",
+    "active": true,
+    "createdAt": "2026-02-05T03:25:00.000Z",
+    "updatedAt": "2026-02-05T03:55:00.000Z",
+    "nodes": [
+        {
+            "id": "webhook_weather",
+            "name": "Webhook Weather",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [
+                112,
+                304
+            ],
+            "parameters": {
+                "httpMethod": "GET",
+                "path": "weather",
+                "responseMode": "responseNode",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            }
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "id": "code_fetch_weather",
+            "name": "Fetch Weather",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                304,
+                304
+            ],
+            "parameters": {
+                "jsCode": "// Fetch weather from OpenWeather API\nconst OPENWEATHER_API_KEY = $env.OPENWEATHER_API_KEY || '';\n\nconst query = $input.first().json.query || {};\nconst lat = parseFloat(query.lat) || -23.55;\nconst lon = parseFloat(query.lon) || -46.63;\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=pt_br&appid=${OPENWEATHER_API_KEY}`\n  });\n  \n  const data = {\n    location: response.name,\n    temperature: Math.round(response.main.temp),\n    feels_like: Math.round(response.main.feels_like),\n    humidity: response.main.humidity,\n    description: response.weather[0].description,\n    wind_speed: Math.round(response.wind.speed * 3.6),\n    timestamp: new Date().toISOString()\n  };\n  \n  return [{ json: { success: true, data } }];\n} catch (error) {\n  return [{ json: { success: false, error: error.message, data: null } }];\n}"
+            }
+        },
+        {
+            "id": "respond_weather",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.5,
+            "position": [
+                512,
+                304
+            ],
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}",
+                "options": {
+                    "responseCode": 200,
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ],
+    "connections": {
+        "Webhook Weather": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Weather",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Weather": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "timezone": "America/Sao_Paulo",
+        "saveDataErrorExecution": "all",
+        "saveDataSuccessExecution": "all"
+    }
+}
