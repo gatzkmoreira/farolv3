@@ -2,6 +2,24 @@ import { X, ExternalLink, Calendar, Share2 } from "lucide-react";
 import type { NewsCard } from "@/types/farol";
 import { trackEvent } from "@/lib/api";
 
+function formatDate(raw: string): string {
+  if (!raw) return "";
+  try {
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return raw;
+    return d.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
+  } catch {
+    return raw;
+  }
+}
+
+function formatCategory(cat: string): string {
+  if (!cat) return "Geral";
+  return cat
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 interface NewsDrawerProps {
   card: NewsCard | null;
   isOpen: boolean;
@@ -22,17 +40,17 @@ const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
       .replace(/^\- (.*$)/gim, '<li>$1</li>')
       .replace(/\n\n/g, '</p><p>')
       .replace(/\n/g, '<br/>');
-    
+
     html = '<p>' + html + '</p>';
     html = html.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
-    
+
     return html;
   };
 
   return (
     <>
       {/* Backdrop */}
-      <div 
+      <div
         className="fixed inset-0 bg-foreground/40 backdrop-blur-sm z-50"
         onClick={onClose}
       />
@@ -50,11 +68,11 @@ const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
                 <p className="text-sm font-semibold text-foreground">{card.source}</p>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Calendar className="w-3 h-3" />
-                  <span>{card.date}</span>
+                  <span>{formatDate(card.date)}</span>
                 </div>
               </div>
             </div>
-            <button 
+            <button
               onClick={onClose}
               className="p-2.5 hover:bg-muted rounded-xl transition-colors"
             >
@@ -65,8 +83,8 @@ const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
           {/* Content - Scrollable */}
           <div className="flex-1 overflow-y-auto px-8 py-6">
             {/* Category badge */}
-            <span className="farol-badge bg-green-light text-primary mb-5 inline-block">
-              {card.category}
+            <span className="inline-block mb-5 px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 select-none">
+              {formatCategory(card.category)}
             </span>
 
             {/* Title */}
@@ -77,8 +95,8 @@ const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
             {/* Image */}
             {card.image && (
               <div className="mb-8 rounded-xl overflow-hidden">
-                <img 
-                  src={card.image} 
+                <img
+                  src={card.image}
                   alt={card.title}
                   className="w-full h-52 object-cover"
                 />
@@ -91,7 +109,7 @@ const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
                 Resumo
               </h3>
               {card.summary_markdown ? (
-                <div 
+                <div
                   className="farol-summary prose-reading"
                   dangerouslySetInnerHTML={{ __html: renderMarkdown(card.summary_markdown) }}
                 />
@@ -107,7 +125,7 @@ const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
               <p className="text-sm text-muted-foreground mb-3">
                 Quer se aprofundar?
               </p>
-              <a 
+              <a
                 href={card.url}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -125,7 +143,7 @@ const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
             <button className="p-2 hover:bg-muted rounded-lg transition-colors">
               <Share2 className="w-5 h-5 text-muted-foreground" />
             </button>
-            <a 
+            <a
               href={card.url}
               target="_blank"
               rel="noopener noreferrer"

@@ -1,4 +1,5 @@
 import { Lightbulb, Mail } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Footer = () => {
   return (
@@ -7,7 +8,7 @@ const Footer = () => {
         {/* Main footer content */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8 pb-8 border-b border-primary-foreground/20">
           {/* Logo */}
-          <a href="/" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
               <Lightbulb className="w-5 h-5 text-secondary-foreground" />
             </div>
@@ -15,20 +16,19 @@ const Footer = () => {
               <span className="text-primary-foreground">Farol</span>
               <span className="text-secondary">Rural</span>
             </span>
-          </a>
+          </Link>
 
           {/* Navigation */}
           <nav className="flex flex-wrap gap-6">
-            <a href="#" className="text-sm text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+            <Link to="/sobre" className="text-sm text-primary-foreground/80 hover:text-primary-foreground transition-colors">
               Sobre
-            </a>
-            <a href="#" className="text-sm text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+            </Link>
+            <Link to="/privacidade" className="text-sm text-primary-foreground/80 hover:text-primary-foreground transition-colors">
               Privacidade
-            </a>
-
-            <a href="#" className="text-sm text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+            </Link>
+            <Link to="/contato" className="text-sm text-primary-foreground/80 hover:text-primary-foreground transition-colors">
               Contato
-            </a>
+            </Link>
           </nav>
 
           {/* Contact */}
