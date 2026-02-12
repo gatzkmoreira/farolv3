@@ -1,4 +1,5 @@
 import { Search } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useState, useEffect } from "react";
 
 interface SearchHeroProps {
@@ -24,6 +25,7 @@ const placeholderTexts = [
 ];
 
 const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
+  const isMobile = useIsMobile();
   const [query, setQuery] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -80,7 +82,7 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
                 Ferramenta em evolução
               </span>
             </div>
-            
+
             <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-1 mt-3">
               <span className="text-secondary">Farol</span>
               <span className="text-accent">Rural</span>
@@ -102,7 +104,7 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               placeholder={isFocused || query ? "Digite sua busca..." : `Pesquise: ${displayedPlaceholder}`}
-              className="farol-search-input"
+              className="farol-search-input pr-14 md:pr-32"
               disabled={isLoading}
             />
             <button
@@ -116,10 +118,13 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Buscando...
+                  <span className="hidden md:inline">Buscando...</span>
                 </span>
               ) : (
-                "Pesquisar"
+                <>
+                  <Search className="w-4 h-4 md:hidden" />
+                  <span className="hidden md:inline">Pesquisar</span>
+                </>
               )}
             </button>
           </div>
@@ -127,7 +132,7 @@ const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
 
         {/* Quick Chips */}
         <div className="flex flex-wrap justify-center gap-2 md:gap-3">
-          {defaultChips.map((chip) => (
+          {(isMobile ? defaultChips.slice(0, 3) : defaultChips).map((chip) => (
             <button
               key={chip}
               type="button"

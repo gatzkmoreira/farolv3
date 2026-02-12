@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TrendingUp, TrendingDown, DollarSign, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 
 const SUPABASE_URL = "https://uvrvlesjgyimspdsghmw.supabase.co";
@@ -120,8 +120,26 @@ const CotacoesPanel = () => {
   const goNext = () => setPageIndex((i) => (i + 1) % PAGES.length);
   const goPrev = () => setPageIndex((i) => (i - 1 + PAGES.length) % PAGES.length);
 
+  // Touch swipe support
+  const touchStartX = useRef<number | null>(null);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const delta = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(delta) > 50) {
+      delta < 0 ? goNext() : goPrev();
+    }
+    touchStartX.current = null;
+  };
+
   return (
-    <div className="farol-card p-5">
+    <div
+      className="farol-card p-5 touch-pan-y"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Header with navigation arrows */}
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
         <div className="flex items-center gap-2">
