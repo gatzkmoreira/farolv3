@@ -1,13 +1,17 @@
 import { Lightbulb } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const Header = () => {
+interface HeaderProps {
+  onGoHome?: () => void;
+}
+
+const Header = ({ onGoHome }: HeaderProps) => {
   return (
     <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-sm border-b border-border">
       <div className="farol-container">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" onClick={onGoHome} className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-lg bg-gradient-green flex items-center justify-center">
               <Lightbulb className="w-5 h-5 text-primary-foreground" />
             </div>
@@ -22,7 +26,7 @@ const Header = () => {
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <Link to="/" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+            <Link to="/" onClick={onGoHome} className="text-sm font-medium text-foreground hover:text-primary transition-colors">
               Início
             </Link>
             <Link to="/sobre" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">

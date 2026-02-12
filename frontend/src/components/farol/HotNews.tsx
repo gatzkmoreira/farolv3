@@ -3,9 +3,30 @@ import { Flame, Loader2 } from "lucide-react";
 import type { NewsCard } from "@/types/farol";
 import { transformCards } from "@/types/farol";
 import { apiFetch } from "@/lib/api";
+import { getSourceFavicon } from "./NewsCard";
 
 interface HotNewsProps {
   onCardClick: (card: NewsCard) => void;
+}
+
+function cleanSourceName(name: string): string {
+  if (!name) return "FarolRural";
+  return name.replace(/\s*-\s*.+$/, "").trim();
+}
+
+// Deterministic color from string hash
+const SOURCE_COLORS = [
+  "bg-emerald-500", "bg-blue-500", "bg-amber-500", "bg-rose-500",
+  "bg-violet-500", "bg-cyan-500", "bg-orange-500", "bg-teal-500",
+  "bg-pink-500", "bg-indigo-500", "bg-lime-600", "bg-red-500",
+];
+
+function getSourceColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  }
+  return SOURCE_COLORS[Math.abs(hash) % SOURCE_COLORS.length];
 }
 
 function formatRelativeDate(isoDate: string): string {
@@ -20,6 +41,30 @@ function formatRelativeDate(isoDate: string): string {
   if (diffD < 7) return `Há ${diffD}d`;
   return new Date(isoDate).toLocaleDateString("pt-BR", { day: "numeric", month: "short" });
 }
+
+const SourceIcon = ({ source }: { source: string }) => {
+  const clean = cleanSourceName(source);
+  const faviconUrl = getSourceFavicon(source);
+  const [showFallback, setShowFallback] = useState(!faviconUrl);
+
+  if (!showFallback && faviconUrl) {
+    return (
+      <img
+        src={faviconUrl}
+        alt={clean}
+        className="w-5 h-5 rounded-md object-contain bg-white border border-border/50 p-0.5 flex-shrink-0"
+        loading="lazy"
+        onError={() => setShowFallback(true)}
+      />
+    );
+  }
+
+  return (
+    <div className={`w-5 h-5 rounded-md ${getSourceColor(clean)} flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0`}>
+      {clean.charAt(0)}
+    </div>
+  );
+};
 
 const HotNews = ({ onCardClick }: HotNewsProps) => {
   const [cards, setCards] = useState<NewsCard[]>([]);
@@ -80,7 +125,8 @@ const HotNews = ({ onCardClick }: HotNewsProps) => {
                     {news.title}
                   </h4>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{news.source}</span>
+                    <SourceIcon source={news.source} />
+                    <span>{cleanSourceName(news.source)}</span>
                     <span>•</span>
                     <span>{formatRelativeDate(news.date)}</span>
                   </div>
@@ -93,7 +139,6 @@ const HotNews = ({ onCardClick }: HotNewsProps) => {
           ))}
         </div>
       )}
-
 
     </div>
   );

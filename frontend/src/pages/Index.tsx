@@ -66,9 +66,16 @@ const Index = () => {
     setIsHotNewsDrawerOpen(true);
   };
 
+  const handleGoHome = () => {
+    setViewState("idle");
+    setSearchResponse(null);
+    setSearchError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header onGoHome={handleGoHome} />
 
       {/* Hero Search */}
       <SearchHero

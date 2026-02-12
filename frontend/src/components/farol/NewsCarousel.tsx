@@ -4,18 +4,81 @@ import type { NewsCard } from "@/types/farol";
 import { transformCards } from "@/types/farol";
 import { apiFetch } from "@/lib/api";
 import NewsDrawer from "./NewsDrawer";
+import { getSourceFavicon } from "./NewsCard";
+
+// Source logo + name display component
+const SourceBadge = ({ source }: { source: string }) => {
+  const clean = cleanSource(source);
+  const faviconUrl = getSourceFavicon(source);
+  const [showFallback, setShowFallback] = useState(!faviconUrl);
+
+  return (
+    <div className="flex items-center gap-2">
+      {!showFallback && faviconUrl ? (
+        <img
+          src={faviconUrl}
+          alt={clean}
+          className="w-6 h-6 rounded-md object-contain bg-white border border-border/50 p-0.5"
+          loading="lazy"
+          onError={() => setShowFallback(true)}
+        />
+      ) : (
+        <div className={`w-6 h-6 rounded-md ${getSourceColor(clean)} flex items-center justify-center text-[10px] font-bold text-white`}>
+          {clean.charAt(0)}
+        </div>
+      )}
+      <span className="text-xs font-medium text-muted-foreground truncate max-w-[120px]">
+        {clean}
+      </span>
+    </div>
+  );
+};
+
+// Clean source name (remove category suffix)
+function cleanSource(name: string): string {
+  if (!name) return "FarolRural";
+  return name.replace(/\s*-\s*.+$/, "").trim();
+}
+
+// Deterministic color from string hash
+const SOURCE_COLORS = [
+  "bg-emerald-500", "bg-blue-500", "bg-amber-500", "bg-rose-500",
+  "bg-violet-500", "bg-cyan-500", "bg-orange-500", "bg-teal-500",
+  "bg-pink-500", "bg-indigo-500", "bg-lime-600", "bg-red-500",
+];
+
+function getSourceColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  }
+  return SOURCE_COLORS[Math.abs(hash) % SOURCE_COLORS.length];
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
-  pecuaria_corte: "Pecuária",
+  pecuaria_corte: "Pecuária de Corte",
+  pecuaria_leite: "Pecuária de Leite",
   graos: "Grãos",
   clima: "Clima",
+  cafe: "Café",
   mercado: "Mercado",
   tecnologia: "Tecnologia",
   politica_rural: "Política Rural",
+  comercio_exterior: "Comércio Exterior",
+  credito: "Crédito",
+  energia: "Energia",
+  suinocultura: "Suinocultura",
+  avicultura: "Avicultura",
+  hortifruti: "Hortifrúti",
 };
 
 function categoryLabel(slug: string): string {
-  return CATEGORY_LABELS[slug] || slug;
+  if (!slug) return "Geral";
+  if (CATEGORY_LABELS[slug]) return CATEGORY_LABELS[slug];
+  // Fallback: replace underscores with spaces, capitalize each word
+  return slug
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatShortDate(isoDate: string): string {
@@ -99,14 +162,7 @@ const NewsCarousel = () => {
     >
       {/* Source & Date */}
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-accent flex items-center justify-center text-[10px] font-bold text-white">
-            {card.source?.charAt(0) || "?"}
-          </div>
-          <span className="text-xs font-medium text-muted-foreground">
-            {card.source}
-          </span>
-        </div>
+        <SourceBadge source={card.source} />
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Calendar className="w-3 h-3" />
           <span>{formatShortDate(card.date)}</span>

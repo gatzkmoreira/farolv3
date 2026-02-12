@@ -6,6 +6,54 @@ interface NewsCardProps {
   onClick: () => void;
 }
 
+// Maps known source names → domain for Google Favicon API
+const SOURCE_DOMAINS: Record<string, string> = {
+  "Notícias Agrícolas": "noticiasagricolas.com.br",
+  "Noticias Agricolas": "noticiasagricolas.com.br",
+  "Agrofy News": "news.agrofy.com.br",
+  "The AgriBiz": "theagribiz.com",
+  "Climatempo": "climatempo.com.br",
+  "Canal Rural": "canalrural.com.br",
+  "AgFeed": "agfeed.com.br",
+  "Agrolink": "agrolink.com.br",
+  "SuiSite": "suisite.com.br",
+  "MDIC": "gov.br",
+  "Scot Consultoria": "scotconsultoria.com.br",
+  "Cepea": "cepea.esalq.usp.br",
+  "Embrapa": "embrapa.br",
+  "Conab": "conab.gov.br",
+  "Epagri": "epagri.sc.gov.br",
+};
+
+// Deterministic color from string hash — each source gets a unique color
+const SOURCE_COLORS = [
+  "bg-emerald-500", "bg-blue-500", "bg-amber-500", "bg-rose-500",
+  "bg-violet-500", "bg-cyan-500", "bg-orange-500", "bg-teal-500",
+  "bg-pink-500", "bg-indigo-500", "bg-lime-600", "bg-red-500",
+];
+
+function getSourceColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  }
+  return SOURCE_COLORS[Math.abs(hash) % SOURCE_COLORS.length];
+}
+
+/** Clean source name: remove category suffix after " - " */
+function cleanSourceName(name: string): string {
+  if (!name) return "FarolRural";
+  return name.replace(/\s*-\s*.+$/, "").trim();
+}
+
+/** Get favicon URL for a source name */
+export function getSourceFavicon(sourceName: string): string | null {
+  const clean = cleanSourceName(sourceName);
+  const domain = SOURCE_DOMAINS[clean];
+  if (!domain) return null;
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+}
+
 function formatCardDate(raw: string): string {
   if (!raw) return "";
   try {
@@ -38,6 +86,9 @@ const NewsCard = ({ card, onClick }: NewsCardProps) => {
     return colors[category] || 'bg-green-light text-primary';
   };
 
+  const cleanName = cleanSourceName(card.source);
+  const faviconUrl = getSourceFavicon(card.source);
+
   return (
     <article
       onClick={onClick}
@@ -46,18 +97,23 @@ const NewsCard = ({ card, onClick }: NewsCardProps) => {
       {/* Source & Date */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          {card.source_logo ? (
+          {faviconUrl ? (
             <img
-              src={card.source_logo}
-              alt={card.source}
-              className="w-5 h-5 rounded object-contain"
+              src={faviconUrl}
+              alt={cleanName}
+              className="w-6 h-6 rounded-md object-contain bg-white border border-border/50 p-0.5"
+              loading="lazy"
+              onError={(e) => {
+                const el = e.currentTarget;
+                el.style.display = "none";
+                el.nextElementSibling?.classList.remove("hidden");
+              }}
             />
-          ) : (
-            <div className="w-5 h-5 rounded bg-accent flex items-center justify-center text-[10px] font-bold text-white">
-              {card.source.charAt(0)}
-            </div>
-          )}
-          <span className="text-xs font-medium text-muted-foreground">{card.source}</span>
+          ) : null}
+          <div className={`w-6 h-6 rounded-md ${getSourceColor(cleanName)} flex items-center justify-center text-[10px] font-bold text-white ${faviconUrl ? "hidden" : ""}`}>
+            {cleanName.charAt(0)}
+          </div>
+          <span className="text-xs font-medium text-muted-foreground">{cleanName}</span>
         </div>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Calendar className="w-3 h-3" />
