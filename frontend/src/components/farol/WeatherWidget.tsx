@@ -1,11 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Cloud, Sun, CloudRain, CloudSun, Loader2, MapPin, ChevronDown, Search } from "lucide-react";
 import { apiFetch } from "@/lib/api";
-
-interface CityOption {
-  value: string;
-  label: string;
-}
+import { loadBrazilianCities, searchCities, type BRCity } from "@/lib/cities";
 
 interface WeatherAPIData {
   location?: { name?: string; uf?: string } | string;
@@ -17,8 +13,6 @@ interface WeatherAPIData {
     condition?: string;
   };
   forecast?: { date?: string; temp_min?: number; temp_max?: number; condition?: string; rain_prob?: number }[];
-  suggestedCities?: CityOption[];
-  detectionMethod?: string;
   // Flat fallback shape
   temperature?: number | string;
   condition?: string;
@@ -52,10 +46,17 @@ const WeatherWidget = () => {
     return "";
   });
   const [cityFilter, setCityFilter] = useState("");
+  const [citySuggestions, setCitySuggestions] = useState<BRCity[]>([]);
+  const [allCities, setAllCities] = useState<BRCity[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const fetchWeather = async (city?: string) => {
+  // Load IBGE cities (cached in localStorage)
+  useEffect(() => {
+    loadBrazilianCities().then(setAllCities).catch(() => { });
+  }, []);
+
+  const fetchWeather = useCallback(async (city?: string) => {
     setIsLoading(true);
     try {
       const params = city ? `?city=${encodeURIComponent(city)}` : "";
@@ -67,11 +68,11 @@ const WeatherWidget = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchWeather(selectedCity || undefined);
-  }, [selectedCity]);
+  }, [selectedCity, fetchWeather]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -79,6 +80,7 @@ const WeatherWidget = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowCityPicker(false);
         setCityFilter("");
+        setCitySuggestions([]);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -92,36 +94,38 @@ const WeatherWidget = () => {
     }
   }, [showCityPicker]);
 
-  const handleCitySelect = (cityValue: string) => {
-    setSelectedCity(cityValue);
-    localStorage.setItem(STORAGE_KEY, cityValue);
+  // Update suggestions when filter changes
+  useEffect(() => {
+    if (cityFilter.trim().length >= 2 && allCities.length > 0) {
+      setCitySuggestions(searchCities(allCities, cityFilter.trim(), 8));
+    } else {
+      setCitySuggestions([]);
+    }
+  }, [cityFilter, allCities]);
+
+  const handleCitySelect = (cityName: string) => {
+    setSelectedCity(cityName);
+    localStorage.setItem(STORAGE_KEY, cityName);
     setShowCityPicker(false);
     setCityFilter("");
-  };
-
-  const handleCustomCitySubmit = () => {
-    const trimmed = cityFilter.trim();
-    if (trimmed.length >= 2) {
-      handleCitySelect(trimmed);
-    }
+    setCitySuggestions([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      // If there are filtered results and filter matches exactly one, select it
-      const exactMatch = suggestedCities.find(
-        (c) => c.label.toLowerCase() === cityFilter.toLowerCase() || c.value === cityFilter.toLowerCase()
-      );
-      if (exactMatch) {
-        handleCitySelect(exactMatch.value);
-      } else {
-        handleCustomCitySubmit();
+      // If suggestions exist, select the first one
+      if (citySuggestions.length > 0) {
+        const first = citySuggestions[0];
+        handleCitySelect(`${first.name}, ${first.uf}`);
+      } else if (cityFilter.trim().length >= 2) {
+        handleCitySelect(cityFilter.trim());
       }
     }
     if (e.key === "Escape") {
       setShowCityPicker(false);
       setCityFilter("");
+      setCitySuggestions([]);
     }
   };
 
@@ -131,15 +135,6 @@ const WeatherWidget = () => {
   const maxTemp = weather?.current?.temp_max ?? weather?.max_temp ?? "--";
   const minTemp = weather?.current?.temp_min ?? weather?.min_temp ?? "--";
   const rainChance = weather?.forecast?.[0]?.rain_prob ?? weather?.rain_chance ?? "--";
-  const suggestedCities = weather?.suggestedCities || [];
-
-  const filteredCities = suggestedCities.filter((c) =>
-    c.label.toLowerCase().includes(cityFilter.toLowerCase())
-  );
-
-  // Show "use custom city" option when typing something not in the list
-  const hasCustomInput = cityFilter.trim().length >= 2 &&
-    !filteredCities.some((c) => c.label.toLowerCase() === cityFilter.trim().toLowerCase());
 
   const getIcon = () => {
     const c = String(condition).toLowerCase();
@@ -192,7 +187,7 @@ const WeatherWidget = () => {
 
               {showCityPicker && (
                 <div className="absolute z-50 mt-1 left-1/2 -translate-x-1/2 w-64 bg-background border border-border rounded-xl shadow-lg overflow-hidden">
-                  {/* Search / free-text input */}
+                  {/* Search input */}
                   <div className="p-2 border-b border-border">
                     <div className="relative">
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -208,36 +203,26 @@ const WeatherWidget = () => {
                     </div>
                   </div>
 
-                  {/* City list */}
+                  {/* City results */}
                   <div className="max-h-48 overflow-y-auto">
-                    {/* Custom city option */}
-                    {hasCustomInput && (
-                      <button
-                        onClick={handleCustomCitySubmit}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-primary/10 transition-colors text-primary font-medium border-b border-border flex items-center gap-2"
-                      >
-                        <Search className="w-3.5 h-3.5" />
-                        Buscar &quot;{cityFilter.trim()}&quot;
-                      </button>
-                    )}
-
-                    {/* Suggested cities */}
-                    {filteredCities.map((city) => (
-                      <button
-                        key={city.value}
-                        onClick={() => handleCitySelect(city.value)}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-muted/50 transition-colors ${selectedCity === city.value
-                            ? "bg-primary/10 text-primary font-medium"
-                            : "text-foreground"
-                          }`}
-                      >
-                        {city.label}
-                      </button>
-                    ))}
-
-                    {filteredCities.length === 0 && !hasCustomInput && (
+                    {citySuggestions.length > 0 ? (
+                      citySuggestions.map((city) => (
+                        <button
+                          key={`${city.name}-${city.uf}`}
+                          onClick={() => handleCitySelect(`${city.name}, ${city.uf}`)}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-primary/10 transition-colors text-foreground flex items-center gap-2"
+                        >
+                          <MapPin className="w-3 h-3 text-muted-foreground shrink-0" />
+                          <span>{city.name}, <span className="text-muted-foreground">{city.uf}</span></span>
+                        </button>
+                      ))
+                    ) : cityFilter.trim().length >= 2 ? (
                       <p className="px-4 py-3 text-xs text-muted-foreground text-center">
-                        Digite o nome da sua cidade e pressione Enter
+                        Nenhuma cidade encontrada
+                      </p>
+                    ) : (
+                      <p className="px-4 py-3 text-xs text-muted-foreground text-center">
+                        Digite o nome da cidade
                       </p>
                     )}
                   </div>
