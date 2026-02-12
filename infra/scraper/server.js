@@ -209,16 +209,124 @@ async function doScrape(browser, url, mode, opts = {}) {
 
     if (mode === "links") {
       const links = await page.evaluate(() => {
+        // Remove noise elements BEFORE extracting links (same as article mode)
+        const noiseSelectors = [
+          "nav", "header", "footer", "aside",
+          "[role='navigation']", "[role='banner']", "[role='complementary']",
+          "[role='contentinfo']",
+          "script", "style", "noscript", "iframe", "svg",
+          "form", "button",
+          ".sidebar", ".side-bar", ".widget", ".widgets",
+          ".ad", ".ads", ".advertisement", ".banner-ad",
+          ".newsletter", ".newsletter-signup", ".subscribe",
+          ".social-share", ".share-buttons", ".social-links", ".social",
+          ".comments", ".comment-section", "#comments",
+          ".breadcrumb", ".breadcrumbs",
+          ".menu", ".nav-menu", ".top-bar", ".navbar",
+          ".cookie-banner", ".cookie-notice", ".lgpd",
+          ".popup", ".modal", ".overlay",
+          ".pagination", ".pager",
+          ".tags", ".tag-list", ".tag-cloud", ".tagcloud",
+          ".author-box", ".author-info",
+          ".whatsapp-cta", ".whatsapp",
+        ];
+        for (const sel of noiseSelectors) {
+          document.querySelectorAll(sel).forEach(el => el.remove());
+        }
+
+        // URL patterns to reject (navigation, categories, non-article pages)
+        const REJECT_PATHS = [
+          /\/tag\//i, /\/tags\//i, /\/autor\//i, /\/author\//i,
+          /\/pagina\//i, /\/page\/\d/i,
+          /\/categoria\//i, /\/category\//i, /\/categories\//i,
+          /\/login/i, /\/cadastro/i, /\/register/i,
+          /\/assine/i, /\/subscribe/i, /\/newsletter/i,
+          /\/privacidade/i, /\/privacy/i,
+          /\/termos/i, /\/terms/i,
+          /\/contato/i, /\/contact/i,
+          /\/sobre/i, /\/about/i,
+          /\/anuncie/i, /\/advertise/i,
+          /\/fale-conosco/i,
+          /\/search/i, /\/busca/i,
+          /\/wp-content\//i, /\/wp-admin/i,
+          /\.(jpg|jpeg|png|gif|svg|pdf|mp4|mp3)$/i,
+          /^mailto:/i, /^tel:/i, /^javascript:/i,
+          /^#/,
+          // BeefPoint section/category pages (not articles)
+          /\/agrotalento/i, /\/universidade-beefpoint/i,
+          /\/eventos/i, /\/agenda/i, /\/webinars?/i,
+          /\/parceiros/i, /\/patrocinadores/i,
+          /\/cursos/i, /\/treinamentos/i,
+          // Generic index/section patterns
+          /\/arquivo/i, /\/archives/i,
+          /\/especiais/i, /\/especial\//i,
+          /\/colunistas/i, /\/colunas\//i,
+          /\/editorias/i, /\/editoria\//i,
+          /\/indicadores/i, /\/cotacoes$/i,
+          /\/faq/i, /\/ajuda/i, /\/help/i,
+          /\/galeria/i, /\/gallery/i, /\/fotos/i, /\/videos/i,
+          /\/podcast/i, /\/radio/i,
+          /\/classificados/i, /\/leiloes/i, /\/leilao/i,
+          /\/safras-e-mercado$/i,
+        ];
+
+        // Heuristic: prefer URLs that look like actual articles
+        // Article URLs typically have a slug with words separated by hyphens
+        // and often include dates or numeric IDs in the path
+        const ARTICLE_SIGNALS = [
+          /\/noticia/i, /\/noticias\//i,
+          /\/\d{4,}\//, // numeric ID or year in path
+          /\/\d{4}\/\d{2}\//,     // date pattern /2026/02/
+          /\/[a-z0-9]+-[a-z0-9]+-[a-z0-9]+/i, // slug with 3+ words
+        ];
+
+        // Domains to reject (external non-article links)
+        const REJECT_DOMAINS = [
+          /facebook\.com/i, /twitter\.com/i, /instagram\.com/i,
+          /youtube\.com/i, /linkedin\.com/i, /whatsapp\.com/i,
+          /t\.me/i, /pinterest\.com/i, /tiktok\.com/i,
+          /play\.google\.com/i, /apps\.apple\.com/i,
+          /mykajabi\.com/i, /agrotalento\.com/i,
+        ];
+
+        const seen = new Set();
         const out = [];
         const aTags = Array.from(document.querySelectorAll("a[href]"));
+
         for (const a of aTags) {
           const href = a.getAttribute("href") || "";
-          const text = (a.textContent || "").trim();
-          if (!href) continue;
-          if (text.length < 15) continue;
-          out.push({ href, text });
+          const text = (a.textContent || "").trim().replace(/\s+/g, " ");
+          if (!href || href === "/" || href === "#") continue;
+          if (text.length < 20) continue;
+          if (text.length > 300) continue;
+
+          // Check URL rejection patterns
+          if (REJECT_PATHS.some(rx => rx.test(href))) continue;
+          if (REJECT_DOMAINS.some(rx => rx.test(href))) continue;
+
+          // Resolve to absolute URL for dedup
+          let absUrl;
+          try { absUrl = new URL(href, document.location.origin).href; } catch { continue; }
+
+          // Reject same-domain index/root pages (path too short = probably a section)
+          try {
+            const u = new URL(absUrl);
+            const pathParts = u.pathname.split("/").filter(Boolean);
+            if (pathParts.length < 2) continue; // e.g. /pecuaria or /cafe = section
+          } catch { continue; }
+
+          // Dedup by URL
+          const normalized = absUrl.toLowerCase().replace(/\/+$/, "");
+          if (seen.has(normalized)) continue;
+          seen.add(normalized);
+
+          // Score: if URL matches article signals, prioritize
+          const score = ARTICLE_SIGNALS.filter(rx => rx.test(absUrl)).length;
+          out.push({ href: absUrl, text, _score: score });
         }
-        return out.slice(0, 200);
+        // Sort by article signals (most article-like first), then truncate
+        out.sort((a, b) => b._score - a._score);
+        return out.slice(0, 50).map(({ href, text }) => ({ href, text }));
       });
       return { ok: true, mode, url, status, links };
     }
@@ -292,14 +400,24 @@ async function doScrape(browser, url, mode, opts = {}) {
       return { title, text, canonical, published, author, description };
     });
 
+    const cleanText = normalizeText(data.text);
+    const wordCount = cleanText.split(/\s+/).filter(Boolean).length;
+    const cleanTitle = normalizeText(data.title);
+
+    // Guard: reject index/category pages that aren't real articles
+    const INDEX_TITLE_PATTERNS = /\b(archives?|categorias?|categories|index|home|safras\s+e?\s*mercado)\b/i;
+    const isIndex = INDEX_TITLE_PATTERNS.test(cleanTitle) || wordCount < 150;
+
     return {
       ok: true, mode, url, status,
-      title: normalizeText(data.title),
+      title: cleanTitle,
       canonical: data.canonical,
       published: data.published,
       author: normalizeText(data.author),
       description: normalizeText(data.description),
-      text: normalizeText(data.text).slice(0, 50000)
+      text: cleanText.slice(0, 50000),
+      word_count: wordCount,
+      is_index: isIndex,
     };
   } finally {
     await context.close().catch(() => { });
