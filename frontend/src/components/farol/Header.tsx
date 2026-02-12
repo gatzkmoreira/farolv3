@@ -1,4 +1,3 @@
-import { Lightbulb } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface HeaderProps {
@@ -12,9 +11,7 @@ const Header = ({ onGoHome }: HeaderProps) => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" onClick={onGoHome} className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-green flex items-center justify-center">
-              <Lightbulb className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <img src="/favicon.svg" alt="Farol Rural" className="w-8 h-8 rounded-lg" />
             <div className="flex items-baseline gap-0.5">
               <span className="text-xl font-bold text-secondary">Farol</span>
               <span className="text-xl font-bold text-accent">Rural</span>

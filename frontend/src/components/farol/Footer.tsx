@@ -1,4 +1,4 @@
-import { Lightbulb, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Footer = () => {
@@ -9,9 +9,7 @@ const Footer = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8 pb-8 border-b border-primary-foreground/20">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center">
-              <Lightbulb className="w-5 h-5 text-secondary-foreground" />
-            </div>
+            <img src="/favicon.svg" alt="Farol Rural" className="w-8 h-8 rounded-lg" />
             <span className="text-xl font-bold">
               <span className="text-primary-foreground">Farol</span>
               <span className="text-secondary">Rural</span>
