@@ -339,9 +339,56 @@ async function doScrape(browser, url, mode, opts = {}) {
         document.title || "";
       const canonical =
         document.querySelector("link[rel='canonical']")?.getAttribute("href") || "";
-      const published =
-        document.querySelector("meta[property='article:published_time']")?.getAttribute("content") ||
-        document.querySelector("time[datetime]")?.getAttribute("datetime") || "";
+      // === Date extraction with multiple fallbacks ===
+      let published = "";
+      // 1. Meta tag (most reliable, used by InfoMoney, Agrolink, TheAgriBiz, etc.)
+      published = document.querySelector("meta[property='article:published_time']")?.getAttribute("content") || "";
+      // 2. <time datetime> element (widely used)
+      if (!published) {
+        published = document.querySelector("time[datetime]")?.getAttribute("datetime") || "";
+      }
+      // 3. JSON-LD structured data (used by Estadão, CNA, Portal do Agronegócio, etc.)
+      if (!published) {
+        const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
+        for (const script of ldScripts) {
+          try {
+            const ld = JSON.parse(script.textContent);
+            const items = Array.isArray(ld) ? ld : [ld];
+            for (const item of items) {
+              if (item.datePublished) { published = item.datePublished; break; }
+              if (item["@graph"]) {
+                for (const g of item["@graph"]) {
+                  if (g.datePublished) { published = g.datePublished; break; }
+                }
+              }
+              if (published) break;
+            }
+          } catch (e) { /* ignore malformed JSON-LD */ }
+          if (published) break;
+        }
+      }
+      // 4. Visible text date patterns (last resort for sites like NovaCana, SuiSite)
+      if (!published) {
+        const bodyText = (document.querySelector("article") || document.querySelector("main") || document.body).innerText || "";
+        const datePatterns = [
+          /Publicado\s+em\s+(\d{2}\/\d{2}\/\d{4})/i,
+          /(\d{2}\/\d{2}\/\d{4})\s*[\-–]\s*\d{2}h\d{2}/,
+          /(\d{2}\/\d{2}\/\d{4})\s+\d{2}:\d{2}/,
+          /(\d{2})\/(\d{2})\/(\d{4})/
+        ];
+        for (const rx of datePatterns) {
+          const m = bodyText.match(rx);
+          if (m) {
+            if (m[3] && m[2] && m[1] && !m[0].includes("Publicado")) {
+              published = `${m[3]}-${m[2]}-${m[1]}`;
+            } else if (m[1] && m[1].includes("/")) {
+              const parts = m[1].split("/");
+              if (parts.length === 3) published = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            if (published) break;
+          }
+        }
+      }
       const author =
         document.querySelector("meta[name='author']")?.getAttribute("content") ||
         document.querySelector("meta[property='article:author']")?.getAttribute("content") ||
