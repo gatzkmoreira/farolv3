@@ -6,6 +6,7 @@ interface SearchHeroProps {
   onSearch: (query: string) => void;
   onChipClick: (chip: string) => void;
   isLoading: boolean;
+  resetTrigger?: number;
 }
 
 const defaultChips = [
@@ -24,9 +25,14 @@ const placeholderTexts = [
   "Milho B3 e mercado",
 ];
 
-const SearchHero = ({ onSearch, onChipClick, isLoading }: SearchHeroProps) => {
+const SearchHero = ({ onSearch, onChipClick, isLoading, resetTrigger }: SearchHeroProps) => {
   const isMobile = useIsMobile();
   const [query, setQuery] = useState("");
+
+  // Clear query when parent triggers reset (home navigation)
+  useEffect(() => {
+    if (resetTrigger) setQuery("");
+  }, [resetTrigger]);
   const [isFocused, setIsFocused] = useState(false);
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [displayedPlaceholder, setDisplayedPlaceholder] = useState("");

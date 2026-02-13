@@ -17,32 +17,44 @@ import type { SearchResponse, ViewState, NewsCard, APISearchData } from "@/types
 import { transformSearchResponse, transformCards } from "@/types/farol";
 
 // Category mapping: chip text → card category slug
-const CHIP_TO_CATEGORY: Record<string, string[]> = {
+const TERM_TO_CATEGORY: Record<string, string[]> = {
   milho: ["graos"],
   soja: ["graos"],
   trigo: ["graos"],
   arroz: ["graos"],
-  feijão: ["graos"],
-  algodão: ["graos"],
-  café: ["cafe"],
+  feijao: ["graos"],
+  algodao: ["graos"],
+  cafe: ["cafe"],
   boi: ["pecuaria_corte"],
   gado: ["pecuaria_corte"],
   carne: ["pecuaria_corte"],
+  bovina: ["pecuaria_corte"],
+  bovino: ["pecuaria_corte"],
+  bezerro: ["pecuaria_corte"],
+  novilho: ["pecuaria_corte"],
+  pecuaria: ["pecuaria_corte"],
+  abate: ["pecuaria_corte"],
+  frigorifico: ["pecuaria_corte"],
+  arroba: ["pecuaria_corte"],
   leite: ["pecuaria_leite"],
-  suíno: ["suinocultura"],
+  suino: ["suinocultura"],
+  porco: ["suinocultura"],
   frango: ["avicultura"],
+  ave: ["avicultura"],
   hortifruti: ["hortifruti"],
-  hortaliça: ["hortifruti"],
+  hortalica: ["hortifruti"],
   clima: ["clima"],
+  tempo: ["clima"],
   mercado: ["mercado"],
+  exportacao: ["mercado"],
 };
 
-function matchChipsToCategories(chips: string[]): string[] {
+function matchTermsToCategories(texts: string[]): string[] {
   const categories = new Set<string>();
-  for (const chip of chips) {
-    const key = chip.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    for (const [term, cats] of Object.entries(CHIP_TO_CATEGORY)) {
-      if (key.includes(term)) {
+  for (const text of texts) {
+    const normalized = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    for (const [term, cats] of Object.entries(TERM_TO_CATEGORY)) {
+      if (normalized.includes(term)) {
         cats.forEach((c) => categories.add(c));
       }
     }
@@ -64,6 +76,7 @@ const Index = () => {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [selectedHotNews, setSelectedHotNews] = useState<NewsCard | null>(null);
   const [isHotNewsDrawerOpen, setIsHotNewsDrawerOpen] = useState(false);
+  const [searchResetTrigger, setSearchResetTrigger] = useState(0);
 
   // Cleanup countdown on unmount
   useEffect(() => {
@@ -126,8 +139,9 @@ const Index = () => {
 
       const data = transformSearchResponse(rawData);
 
-      // Fetch related cards: use chips to find relevant categories
-      const matchedCategories = matchChipsToCategories(data.chips || []);
+      // Fetch related cards: match chips + original query to categories
+      const textsToMatch = [...(data.chips || []), query];
+      const matchedCategories = matchTermsToCategories(textsToMatch);
       let cardsUrl = "/api/cards?limit=6";
       if (matchedCategories.length > 0) {
         cardsUrl += `&category=${matchedCategories[0]}`;
@@ -190,6 +204,7 @@ const Index = () => {
     setViewState("idle");
     setSearchResponse(null);
     setSearchError(null);
+    setSearchResetTrigger((prev) => prev + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -202,6 +217,7 @@ const Index = () => {
         onSearch={handleSearch}
         onChipClick={handleChipClick}
         isLoading={viewState === "loading"}
+        resetTrigger={searchResetTrigger}
       />
 
       {/* Error State */}
