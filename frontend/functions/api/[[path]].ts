@@ -112,7 +112,7 @@ async function validateTurnstile(
     ip: string
 ): Promise<boolean> {
     if (!secret) return true; // Turnstile not configured = skip
-    if (!token) return false; // No token sent = block
+    if (!token) return true; // No token sent = allow (rely on rate limit)
 
     try {
         const res = await fetch(
