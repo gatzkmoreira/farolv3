@@ -12,6 +12,7 @@ import Newsletter from "@/components/farol/Newsletter";
 import Footer from "@/components/farol/Footer";
 import NewsDrawer from "@/components/farol/NewsDrawer";
 import { apiFetch, trackEvent } from "@/lib/api";
+import { getTurnstileToken } from "@/lib/turnstile";
 import type { SearchResponse, ViewState, NewsCard, APISearchData } from "@/types/farol";
 import { transformSearchResponse, transformCards } from "@/types/farol";
 
@@ -27,11 +28,21 @@ const Index = () => {
     setSearchError(null);
 
     try {
+      // Get Turnstile token (invisible, null if not configured)
+      const turnstileToken = await getTurnstileToken();
+
+      const searchHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (turnstileToken) {
+        searchHeaders["X-Turnstile-Token"] = turnstileToken;
+      }
+
       // Fetch search answer and cards in parallel
       const [rawData, rawCards] = await Promise.all([
         apiFetch<APISearchData>("/api/search", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: searchHeaders,
           body: JSON.stringify({ query }),
         }),
         apiFetch<unknown>("/api/cards?limit=6").catch(() => []),
@@ -50,7 +61,14 @@ const Index = () => {
       trackEvent("search", { query });
     } catch (error) {
       console.error("[Farol] Search failed:", error);
-      setSearchError("Não foi possível realizar a busca. Tente novamente.");
+      const errMsg = error instanceof Error ? error.message : "";
+      if (errMsg.includes("429")) {
+        setSearchError("Você atingiu o limite de buscas por hora. Aguarde alguns minutos e tente novamente.");
+      } else if (errMsg.includes("403")) {
+        setSearchError("Verificação de segurança falhou. Recarregue a página e tente novamente.");
+      } else {
+        setSearchError("Não foi possível realizar a busca. Tente novamente.");
+      }
       setViewState("idle");
     }
   };

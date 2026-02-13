@@ -1,5 +1,17 @@
 // API utilities for Farol Rural 2.0
 
+import { getFarolUID } from "./fingerprint";
+
+/**
+ * Returns common headers for all API calls, including the anonymous device UID.
+ */
+function baseHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "X-Farol-UID": getFarolUID(),
+  };
+}
+
 /**
  * Fire-and-forget event tracking
  * Sends events to /api/event without blocking the UI
@@ -7,7 +19,7 @@
 export const trackEvent = (eventType: string, payload: Record<string, unknown>) => {
   fetch("/api/event", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: baseHeaders(),
     body: JSON.stringify({
       event_type: eventType,
       payload,
@@ -26,7 +38,12 @@ export const apiFetch = async <T>(
   url: string,
   options?: RequestInit
 ): Promise<T> => {
-  const res = await fetch(url, options);
+  const headers = {
+    ...baseHeaders(),
+    ...(options?.headers as Record<string, string>),
+  };
+
+  const res = await fetch(url, { ...options, headers });
   const contentType = res.headers.get("content-type") || "";
 
   if (!res.ok) {
