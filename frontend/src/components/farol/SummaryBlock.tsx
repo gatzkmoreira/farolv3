@@ -41,7 +41,59 @@ const SummaryBlock = ({ markdown, timingMs, sources }: SummaryBlockProps) => {
   const renderMarkdown = (md: string) => {
     if (!md) return "";
 
-    let html = md
+    // Step 1: Extract and render markdown tables BEFORE other transformations
+    const lines = md.split('\n');
+    const processedBlocks: string[] = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      // Detect table: line starts with | and has at least 2 |
+      if (line.trim().startsWith('|') && (line.match(/\|/g) || []).length >= 3) {
+        // Collect all consecutive table lines
+        const tableLines: string[] = [];
+        while (i < lines.length && lines[i].trim().startsWith('|')) {
+          tableLines.push(lines[i].trim());
+          i++;
+        }
+
+        if (tableLines.length >= 2) {
+          // Parse header row
+          const headerCells = tableLines[0].split('|').filter(c => c.trim() !== '').map(c => c.trim());
+
+          // Find separator row (|---|---|) and skip it
+          let dataStartIdx = 1;
+          if (tableLines.length > 1 && /^[\s|:-]+$/.test(tableLines[1].replace(/-/g, ''))) {
+            dataStartIdx = 2;
+          }
+
+          // Parse data rows
+          const dataRows = tableLines.slice(dataStartIdx).map(row =>
+            row.split('|').filter(c => c.trim() !== '').map(c => c.trim())
+          );
+
+          // Build HTML table
+          let tableHtml = '<div class="overflow-x-auto"><table>';
+          tableHtml += '<thead><tr>' + headerCells.map(c => `<th>${c}</th>`).join('') + '</tr></thead>';
+          tableHtml += '<tbody>';
+          for (const row of dataRows) {
+            tableHtml += '<tr>' + row.map(c => `<td>${c}</td>`).join('') + '</tr>';
+          }
+          tableHtml += '</tbody></table></div>';
+          processedBlocks.push(tableHtml);
+        } else {
+          processedBlocks.push(tableLines.join('\n'));
+          i++;
+        }
+      } else {
+        processedBlocks.push(line);
+        i++;
+      }
+    }
+
+    // Step 2: Rejoin non-table content and apply other markdown transforms
+    let html = processedBlocks.join('\n')
       .replace(/^### (.*$)/gim, '<h3>$1</h3>')
       .replace(/^## (.*$)/gim, '<h2>$1</h2>')
       .replace(/^# (.*$)/gim, '<h1>$1</h1>')
