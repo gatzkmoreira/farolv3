@@ -182,15 +182,33 @@
   }
 
   .farol-summary table {
-    @apply w-full border-collapse mb-4 text-sm;
+    @apply w-full border-collapse mb-6 text-sm rounded-lg overflow-hidden;
+  }
+
+  .farol-summary thead {
+    @apply bg-muted;
   }
 
   .farol-summary th {
-    @apply bg-muted px-4 py-2 text-left font-semibold border border-border;
+    @apply px-4 py-2.5 text-left font-semibold text-foreground/90 border-b-2 border-border text-xs uppercase tracking-wide;
   }
 
   .farol-summary td {
-    @apply px-4 py-2 border border-border;
+    @apply px-4 py-2.5 border-b border-border text-foreground/80;
+  }
+
+  .farol-summary tbody tr:hover {
+    @apply bg-muted/50;
+  }
+
+  .farol-summary tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .farol-summary .overflow-x-auto {
+    @apply -mx-2 px-2 mb-4;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .farol-summary strong {
