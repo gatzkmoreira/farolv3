@@ -102,7 +102,7 @@ const NewsCarousel = () => {
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch<unknown>("/api/cards?limit=20")
+    apiFetch<unknown>("/api/cards?limit=20&offset=3")
       .then((data) => {
         if (!cancelled) setCards(transformCards(data));
       })

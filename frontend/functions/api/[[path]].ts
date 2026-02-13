@@ -182,18 +182,23 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     );
 
     if (!allowed) {
-        return jsonResponse(
+        const limit = RATE_LIMITS[apiPath] ?? RATE_LIMITS.default;
+        const retryAfterSeconds = 3600; // KV TTL = 1 hour
+        const response = jsonResponse(
             {
                 success: false,
                 error: {
                     code: "RATE_LIMITED",
-                    message:
-                        "Você atingiu o limite de buscas por hora. Tente novamente em alguns minutos.",
+                    message: `Você atingiu o limite de ${limit} buscas por hora. O Farol Rural está em evolução — em breve esse limite será ampliado!`,
+                    retry_after_seconds: retryAfterSeconds,
+                    limit,
                 },
             },
             429,
             origin
         );
+        response.headers.set("Retry-After", String(retryAfterSeconds));
+        return response;
     }
 
     // ─── Turnstile (only for /api/search) ───

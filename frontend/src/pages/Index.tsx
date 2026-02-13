@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Header from "@/components/farol/Header";
 import SearchHero from "@/components/farol/SearchHero";
 import SummaryBlock from "@/components/farol/SummaryBlock";
@@ -16,19 +16,98 @@ import { getTurnstileToken } from "@/lib/turnstile";
 import type { SearchResponse, ViewState, NewsCard, APISearchData } from "@/types/farol";
 import { transformSearchResponse, transformCards } from "@/types/farol";
 
+// Category mapping: chip text → card category slug
+const CHIP_TO_CATEGORY: Record<string, string[]> = {
+  milho: ["graos"],
+  soja: ["graos"],
+  trigo: ["graos"],
+  arroz: ["graos"],
+  feijão: ["graos"],
+  algodão: ["graos"],
+  café: ["cafe"],
+  boi: ["pecuaria_corte"],
+  gado: ["pecuaria_corte"],
+  carne: ["pecuaria_corte"],
+  leite: ["pecuaria_leite"],
+  suíno: ["suinocultura"],
+  frango: ["avicultura"],
+  hortifruti: ["hortifruti"],
+  hortaliça: ["hortifruti"],
+  clima: ["clima"],
+  mercado: ["mercado"],
+};
+
+function matchChipsToCategories(chips: string[]): string[] {
+  const categories = new Set<string>();
+  for (const chip of chips) {
+    const key = chip.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    for (const [term, cats] of Object.entries(CHIP_TO_CATEGORY)) {
+      if (key.includes(term)) {
+        cats.forEach((c) => categories.add(c));
+      }
+    }
+  }
+  return Array.from(categories);
+}
+
+function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
 const Index = () => {
   const [viewState, setViewState] = useState<ViewState>("idle");
   const [searchResponse, setSearchResponse] = useState<SearchResponse | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [rateLimitCountdown, setRateLimitCountdown] = useState(0);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [selectedHotNews, setSelectedHotNews] = useState<NewsCard | null>(null);
   const [isHotNewsDrawerOpen, setIsHotNewsDrawerOpen] = useState(false);
+
+  // Cleanup countdown on unmount
+  useEffect(() => {
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
+
+  // Live countdown ticker
+  useEffect(() => {
+    if (rateLimitCountdown <= 0) {
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+      if (searchError?.includes("limite")) {
+        setSearchError(null);
+      }
+      return;
+    }
+
+    countdownRef.current = setInterval(() => {
+      setRateLimitCountdown((prev) => {
+        if (prev <= 1) return 0;
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [rateLimitCountdown > 0]);
+
+  const startRateLimitCountdown = useCallback((seconds: number) => {
+    // Cap at 1 hour max
+    const capped = Math.min(seconds, 3600);
+    setRateLimitCountdown(capped);
+  }, []);
 
   const handleSearch = async (query: string) => {
     setViewState("loading");
     setSearchError(null);
 
     try {
-      // Get Turnstile token (invisible, null if not configured)
       const turnstileToken = await getTurnstileToken();
 
       const searchHeaders: Record<string, string> = {
@@ -38,33 +117,57 @@ const Index = () => {
         searchHeaders["X-Turnstile-Token"] = turnstileToken;
       }
 
-      // Fetch search answer and cards in parallel
-      const [rawData, rawCards] = await Promise.all([
-        apiFetch<APISearchData>("/api/search", {
-          method: "POST",
-          headers: searchHeaders,
-          body: JSON.stringify({ query }),
-        }),
-        apiFetch<unknown>("/api/cards?limit=6").catch(() => []),
-      ]);
+      // Fetch search answer
+      const rawData = await apiFetch<APISearchData>("/api/search", {
+        method: "POST",
+        headers: searchHeaders,
+        body: JSON.stringify({ query }),
+      });
 
-      // Transform to frontend format
       const data = transformSearchResponse(rawData);
 
-      // Attach fetched cards
-      data.cards = transformCards(rawCards);
+      // Fetch related cards: use chips to find relevant categories
+      const matchedCategories = matchChipsToCategories(data.chips || []);
+      let cardsUrl = "/api/cards?limit=6";
+      if (matchedCategories.length > 0) {
+        cardsUrl += `&category=${matchedCategories[0]}`;
+      }
+
+      try {
+        const rawCards = await apiFetch<unknown>(cardsUrl);
+        data.cards = transformCards(rawCards);
+      } catch {
+        // If category filter returns nothing, fallback to recent cards
+        try {
+          const rawCards = await apiFetch<unknown>("/api/cards?limit=6");
+          data.cards = transformCards(rawCards);
+        } catch {
+          data.cards = [];
+        }
+      }
 
       setSearchResponse(data);
       setViewState("results");
 
-      // Track search event (fire and forget)
       trackEvent("search", { query });
     } catch (error) {
       console.error("[Farol] Search failed:", error);
-      const errMsg = error instanceof Error ? error.message : "";
-      if (errMsg.includes("429")) {
-        setSearchError("Você atingiu o limite de buscas por hora. Aguarde alguns minutos e tente novamente.");
-      } else if (errMsg.includes("403")) {
+
+      if (error instanceof Response || (error instanceof Error && error.message.includes("429"))) {
+        // Try to extract retry_after from the response
+        let retrySeconds = 3600; // default 1 hour
+        try {
+          const errBody = error instanceof Error ? JSON.parse(error.message.replace(/^[^{]*/, "")) : null;
+          if (errBody?.error?.retry_after_seconds) {
+            retrySeconds = errBody.error.retry_after_seconds;
+          }
+        } catch { /* use default */ }
+
+        startRateLimitCountdown(retrySeconds);
+        setSearchError(
+          `Você atingiu o limite de 30 buscas por hora. O Farol Rural está em evolução — em breve esse limite será ampliado! 🚀`
+        );
+      } else if (error instanceof Error && error.message.includes("403")) {
         setSearchError("Verificação de segurança falhou. Recarregue a página e tente novamente.");
       } else {
         setSearchError("Não foi possível realizar a busca. Tente novamente.");
@@ -74,7 +177,6 @@ const Index = () => {
   };
 
   const handleChipClick = (chip: string) => {
-    // Track chip click (fire and forget)
     trackEvent("chip_click", { chip });
     handleSearch(chip);
   };
@@ -106,8 +208,16 @@ const Index = () => {
       {searchError && (
         <section className="py-4">
           <div className="farol-container">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-              <p className="text-red-600">{searchError}</p>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-center">
+              <p className="text-amber-800 font-medium mb-1">{searchError}</p>
+              {rateLimitCountdown > 0 && (
+                <p className="text-amber-600 text-sm mt-2">
+                  Novas buscas disponíveis em{" "}
+                  <span className="font-bold text-amber-800 tabular-nums">
+                    {formatCountdown(rateLimitCountdown)}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
         </section>
@@ -162,8 +272,6 @@ const Index = () => {
           <NewsCarousel />
         </>
       )}
-
-      {/* Removed: Evolution message section - now displayed as diagonal badge in SearchHero */}
 
       {/* Newsletter */}
       <Newsletter />
