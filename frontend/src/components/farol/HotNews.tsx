@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Flame, Loader2 } from "lucide-react";
 import type { NewsCard } from "@/types/farol";
-import { transformCards } from "@/types/farol";
-import { apiFetch } from "@/lib/api";
 import { getSourceFavicon } from "./NewsCard";
 
 interface HotNewsProps {
+  cards: NewsCard[];
+  loading: boolean;
   onCardClick: (card: NewsCard) => void;
 }
 
@@ -66,25 +66,7 @@ const SourceIcon = ({ source }: { source: string }) => {
   );
 };
 
-const HotNews = ({ onCardClick }: HotNewsProps) => {
-  const [cards, setCards] = useState<NewsCard[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<unknown>("/api/cards?limit=3")
-      .then((data) => {
-        if (!cancelled) setCards(transformCards(data));
-      })
-      .catch((err) => {
-        console.warn("[HotNews] fetch failed:", err);
-        if (!cancelled) setCards([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
+const HotNews = ({ cards, loading, onCardClick }: HotNewsProps) => {
 
   return (
     <div className="farol-card p-5">

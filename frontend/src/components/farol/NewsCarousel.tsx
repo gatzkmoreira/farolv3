@@ -1,8 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { ChevronLeft, ChevronRight, Calendar, ExternalLink, Loader2 } from "lucide-react";
 import type { NewsCard } from "@/types/farol";
-import { transformCards } from "@/types/farol";
-import { apiFetch } from "@/lib/api";
 import NewsDrawer from "./NewsDrawer";
 import { getSourceFavicon } from "./NewsCard";
 
@@ -92,29 +90,16 @@ function formatShortDate(isoDate: string): string {
   }
 }
 
-const NewsCarousel = () => {
+interface NewsCarouselProps {
+  cards: NewsCard[];
+  loading: boolean;
+}
+
+const NewsCarousel = ({ cards, loading }: NewsCarouselProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [cards, setCards] = useState<NewsCard[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedCard, setSelectedCard] = useState<NewsCard | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("Todas");
-
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<unknown>("/api/cards?limit=20&offset=3")
-      .then((data) => {
-        if (!cancelled) setCards(transformCards(data));
-      })
-      .catch((err) => {
-        console.warn("[NewsCarousel] fetch failed:", err);
-        if (!cancelled) setCards([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
 
   // Build dynamic categories from fetched data
   const uniqueCategories = Array.from(new Set(cards.map((c) => c.category)));
