@@ -78,6 +78,29 @@ const Index = () => {
   const [isHotNewsDrawerOpen, setIsHotNewsDrawerOpen] = useState(false);
   const [searchResetTrigger, setSearchResetTrigger] = useState(0);
 
+  // ─── Centralized card fetch (single request for HotNews + NewsCarousel) ───
+  const [allCards, setAllCards] = useState<NewsCard[]>([]);
+  const [cardsLoading, setCardsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<unknown>("/api/cards?limit=20")
+      .then((data) => {
+        if (!cancelled) setAllCards(transformCards(data));
+      })
+      .catch((err) => {
+        console.warn("[Index] cards fetch failed:", err);
+        if (!cancelled) setAllCards([]);
+      })
+      .finally(() => {
+        if (!cancelled) setCardsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const hotNewsCards = allCards.slice(0, 3);
+  const carouselCards = allCards.slice(3);
+
   // Cleanup countdown on unmount
   useEffect(() => {
     return () => {
@@ -272,7 +295,7 @@ const Index = () => {
             <div className="farol-container">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-1">
-                  <HotNews onCardClick={handleHotNewsClick} />
+                  <HotNews cards={hotNewsCards} loading={cardsLoading} onCardClick={handleHotNewsClick} />
                 </div>
                 <div className="md:col-span-1">
                   <CotacoesPanel />
@@ -285,7 +308,7 @@ const Index = () => {
           </section>
 
           {/* News Carousel */}
-          <NewsCarousel />
+          <NewsCarousel cards={carouselCards} loading={cardsLoading} />
         </>
       )}
 

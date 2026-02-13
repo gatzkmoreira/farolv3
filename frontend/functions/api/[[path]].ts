@@ -41,6 +41,13 @@ const ROUTE_MAPPING: Record<string, string> = {
     "/api/healthcheck": "/ping",
 };
 
+// Routes that benefit from edge caching (GET-only, data changes infrequently)
+const CACHEABLE_ROUTES: Record<string, number> = {
+    "/api/cards": 300,      // 5 min — cards update every 4-6h
+    "/api/cotacoes": 600,   // 10 min — price quotes update daily
+    "/api/weather": 900,    // 15 min — weather updates every 30 min
+};
+
 // ──────────────────────────── Helpers ────────────────────────────
 
 function isAllowedOrigin(origin: string | null): boolean {
@@ -230,6 +237,31 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         ROUTE_MAPPING[apiPath] ?? apiPath.replace(/^\/api/, "");
     const n8nUrl = `${N8N_WEBHOOK_BASE}${n8nPath}${url.search}`;
 
+    // ─── Edge Cache (Cloudflare Cache API) ───
+    const cacheTtl = request.method === "GET" ? CACHEABLE_ROUTES[apiPath] : undefined;
+
+    if (cacheTtl) {
+        // Build a cache key from the full URL (includes query params)
+        const cacheKey = new Request(request.url, { method: "GET" });
+        const cache = (caches as any).default;
+
+        // Check cache first
+        const cachedResponse = await cache.match(cacheKey);
+        if (cachedResponse) {
+            // Return cached response with CORS headers
+            const headers = new Headers(cachedResponse.headers);
+            Object.entries(corsHeaders(origin)).forEach(([k, v]) => headers.set(k, v));
+            headers.set("X-Cache", "HIT");
+            if (remaining >= 0) {
+                headers.set("X-RateLimit-Remaining", String(remaining));
+            }
+            return new Response(cachedResponse.body, {
+                status: cachedResponse.status,
+                headers,
+            });
+        }
+    }
+
     try {
         const n8nResponse = await fetch(n8nUrl, {
             method: request.method,
@@ -250,6 +282,21 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
         if (remaining >= 0) {
             headers["X-RateLimit-Remaining"] = String(remaining);
+        }
+
+        // Add cache headers for cacheable routes
+        if (cacheTtl && n8nResponse.ok) {
+            headers["Cache-Control"] = `public, s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl * 2}`;
+            headers["X-Cache"] = "MISS";
+
+            // Store in Cloudflare edge cache
+            const cacheKey = new Request(request.url, { method: "GET" });
+            const cacheResponse = new Response(responseBody, {
+                status: n8nResponse.status,
+                headers,
+            });
+            // waitUntil keeps the worker alive to store cache without blocking response
+            context.waitUntil((caches as any).default.put(cacheKey, cacheResponse.clone()));
         }
 
         return new Response(responseBody, {
