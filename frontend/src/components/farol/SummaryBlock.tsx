@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { CheckCircle2, ThumbsUp, ThumbsDown } from "lucide-react";
 import { trackEvent } from "@/lib/api";
 
@@ -6,9 +6,10 @@ interface SummaryBlockProps {
   markdown: string;
   timingMs?: number;
   sources?: string[];
+  children?: ReactNode;
 }
 
-const SummaryBlock = ({ markdown, timingMs, sources }: SummaryBlockProps) => {
+const SummaryBlock = ({ markdown, timingMs, sources, children }: SummaryBlockProps) => {
   const [feedbackGiven, setFeedbackGiven] = useState<"positive" | "negative" | null>(null);
 
   const handleFeedback = (rating: "positive" | "negative") => {
@@ -120,6 +121,9 @@ const SummaryBlock = ({ markdown, timingMs, sources }: SummaryBlockProps) => {
             className="farol-summary"
             dangerouslySetInnerHTML={{ __html: renderMarkdown(stripInlineSources(markdown)) }}
           />
+
+          {/* Injected content (e.g. ClimateChart) */}
+          {children}
 
           {/* Sources */}
           {sources && sources.length > 0 && (

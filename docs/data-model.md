@@ -12,7 +12,8 @@ Objetivo: dados organizados para 3 frentes:
 
 ## Estruturados
 - quotes (cotações)
-- weather_cache
+- weather_cache (previsão real-time, OpenWeather)
+- weather_history (histórico ERA5, Open-Meteo — cache progressivo)
 - microfacts
 
 ## Cards
