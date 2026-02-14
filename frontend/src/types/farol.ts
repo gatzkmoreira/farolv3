@@ -5,6 +5,17 @@ export interface APISource {
   date?: string;
 }
 
+export interface HistoryDataPoint {
+  date: string;
+  temp_min: number;
+  temp_max: number;
+  temp_mean: number;
+  precipitation: number;
+  humidity_mean?: number;
+  wind_speed_max?: number;
+  weather_code?: number;
+}
+
 export interface APISearchData {
   intent: 'cotacao' | 'clima' | 'geral';
   answer: string;
@@ -12,6 +23,7 @@ export interface APISearchData {
   sources: APISource[];
   timingMs: number;
   confidence?: number;
+  historyData?: HistoryDataPoint[];
 }
 
 export interface APISearchResponse {
@@ -32,6 +44,7 @@ export interface SearchResponse {
   cards: NewsCard[];
   sources_used: string[];
   timing_ms: number;
+  historyData?: HistoryDataPoint[];
 }
 
 // Helper to transform API response to frontend format.
@@ -54,6 +67,7 @@ export function transformSearchResponse(raw: APISearchResponse | APISearchData):
       ? data.sources.map(s => typeof s === 'string' ? s : s.name)
       : [],
     timing_ms: data.timingMs ?? 0,
+    historyData: data.historyData,
   };
 }
 

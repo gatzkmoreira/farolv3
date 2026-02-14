@@ -8,6 +8,7 @@ import WeatherWidget from "@/components/farol/WeatherWidget";
 import HotNews from "@/components/farol/HotNews";
 import NewsCarousel from "@/components/farol/NewsCarousel";
 import LoadingMessages from "@/components/farol/LoadingMessages";
+import ClimateChart from "@/components/farol/ClimateChart";
 import Newsletter from "@/components/farol/Newsletter";
 import Footer from "@/components/farol/Footer";
 import NewsDrawer from "@/components/farol/NewsDrawer";
@@ -278,7 +279,13 @@ const Index = () => {
             markdown={searchResponse.answer_markdown}
             timingMs={searchResponse.timing_ms}
             sources={searchResponse.sources_used}
-          />
+          >
+            {searchResponse.intent === "clima" &&
+              searchResponse.historyData &&
+              searchResponse.historyData.length > 0 && (
+                <ClimateChart data={searchResponse.historyData} />
+              )}
+          </SummaryBlock>
           <NewsGrid
             cards={searchResponse.cards}
             chips={searchResponse.chips}
