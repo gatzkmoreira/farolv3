@@ -11,6 +11,7 @@ interface ProductConfig {
   praca: string;
   label: string;
   pracaLabel: string;
+  paymentNote?: string;
 }
 
 const PAGES: { title: string; emoji: string; items: ProductConfig[] }[] = [
@@ -18,8 +19,8 @@ const PAGES: { title: string; emoji: string; items: ProductConfig[] }[] = [
     title: "Pecuária",
     emoji: "🐂",
     items: [
-      { product: "boi_gordo", praca: "SP", label: "Boi Gordo", pracaLabel: "SP" },
-      { product: "novilha_gorda", praca: "SP", label: "Novilha Gorda", pracaLabel: "SP" },
+      { product: "boi_gordo", praca: "SP", label: "Boi Gordo", pracaLabel: "SP", paymentNote: "@ à vista" },
+      { product: "novilha_gorda", praca: "SP", label: "Novilha Gorda", pracaLabel: "SP", paymentNote: "@ à vista" },
       { product: "frango", praca: "Brasil", label: "Frango", pracaLabel: "BR" },
       { product: "suino", praca: "Brasil", label: "Suíno", pracaLabel: "BR" },
     ],
@@ -190,7 +191,13 @@ const CotacoesPanel = () => {
                     {item.label}{" "}
                     <span className="text-xs text-muted-foreground">({item.pracaLabel})</span>
                   </p>
-                  <p className="text-xs text-muted-foreground">{quote?.unit ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {item.paymentNote ? (
+                      <span className="text-amber-600 font-medium">{item.paymentNote}</span>
+                    ) : (
+                      quote?.unit ?? "—"
+                    )}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-foreground">
