@@ -40,6 +40,11 @@ function formatCommodity(name: string): string {
 
 /** Build a human-friendly title from alert data */
 function buildTitle(alert: MarketAlert): string {
+    // Weather: use DB title directly (already formatted with city + alert details)
+    if (alert.alert_type === "weather") {
+        return alert.title;
+    }
+
     const commodity = formatCommodity(alert.commodity);
     const loc = formatLocation(alert.location);
     const data = alert.data || {};
@@ -66,6 +71,9 @@ function buildTitle(alert: MarketAlert): string {
 function AlertIcon({ alert }: { alert: MarketAlert }) {
     const style = SEVERITY_STYLES[alert.severity] || SEVERITY_STYLES.info;
 
+    if (alert.alert_type === "weather") {
+        return <MapPin className={`w-4 h-4 ${style.icon} flex-shrink-0`} />;
+    }
     if (alert.alert_type === "exchange") {
         return <DollarSign className={`w-4 h-4 ${style.icon} flex-shrink-0`} />;
     }
