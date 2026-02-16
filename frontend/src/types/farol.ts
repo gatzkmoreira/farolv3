@@ -16,6 +16,33 @@ export interface HistoryDataPoint {
   weather_code?: number;
 }
 
+export interface PriceHistoryPoint {
+  date: string;
+  price: number;
+  change_pct?: number;
+}
+
+export interface PriceComparisonPoint {
+  state: string;
+  price: number;
+  unit: string;
+  date: string;
+}
+
+export interface ChartYKey {
+  key: string;
+  label: string;
+  color: string;
+}
+
+export interface ChartConfig {
+  type: 'line' | 'bar' | 'area';
+  title: string;
+  xKey: string;
+  yKeys: ChartYKey[];
+  data: Record<string, unknown>[];
+}
+
 export interface APISearchData {
   intent: 'cotacao' | 'clima' | 'geral';
   answer: string;
@@ -24,6 +51,9 @@ export interface APISearchData {
   timingMs: number;
   confidence?: number;
   historyData?: HistoryDataPoint[];
+  priceHistory?: PriceHistoryPoint[];
+  priceComparison?: PriceComparisonPoint[];
+  charts?: ChartConfig[];
 }
 
 export interface APISearchResponse {
@@ -45,6 +75,9 @@ export interface SearchResponse {
   sources_used: string[];
   timing_ms: number;
   historyData?: HistoryDataPoint[];
+  priceHistory?: PriceHistoryPoint[];
+  priceComparison?: PriceComparisonPoint[];
+  charts?: ChartConfig[];
 }
 
 // Helper to transform API response to frontend format.
@@ -68,6 +101,9 @@ export function transformSearchResponse(raw: APISearchResponse | APISearchData):
       : [],
     timing_ms: data.timingMs ?? 0,
     historyData: data.historyData,
+    priceHistory: data.priceHistory,
+    priceComparison: data.priceComparison,
+    charts: data.charts,
   };
 }
 

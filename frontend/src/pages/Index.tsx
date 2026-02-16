@@ -9,6 +9,8 @@ import HotNews from "@/components/farol/HotNews";
 import NewsCarousel from "@/components/farol/NewsCarousel";
 import LoadingMessages from "@/components/farol/LoadingMessages";
 import ClimateChart from "@/components/farol/ClimateChart";
+import PriceChart from "@/components/farol/PriceChart";
+import GenericChart from "@/components/farol/GenericChart";
 import Newsletter from "@/components/farol/Newsletter";
 import Footer from "@/components/farol/Footer";
 import NewsDrawer from "@/components/farol/NewsDrawer";
@@ -284,6 +286,18 @@ const Index = () => {
               searchResponse.historyData &&
               searchResponse.historyData.length > 0 && (
                 <ClimateChart data={searchResponse.historyData} />
+              )}
+            {searchResponse.intent === "cotacao" &&
+              searchResponse.priceHistory &&
+              searchResponse.priceHistory.length > 0 && (
+                <PriceChart
+                  priceHistory={searchResponse.priceHistory}
+                  priceComparison={searchResponse.priceComparison}
+                />
+              )}
+            {searchResponse.charts &&
+              searchResponse.charts.length > 0 && (
+                <GenericChart charts={searchResponse.charts} />
               )}
           </SummaryBlock>
           <NewsGrid
