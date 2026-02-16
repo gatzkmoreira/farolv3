@@ -36,6 +36,7 @@ const ROUTE_MAPPING: Record<string, string> = {
     "/api/weather": "/weather",
     "/api/cards": "/cards",
     "/api/cotacoes": "/cotacoes",
+    "/api/alerts": "/alerts",
     "/api/event": "/event",
     "/api/feedback": "/feedback",
     "/api/healthcheck": "/ping",
@@ -46,6 +47,7 @@ const CACHEABLE_ROUTES: Record<string, number> = {
     "/api/cards": 300,      // 5 min — cards update every 4-6h
     "/api/cotacoes": 600,   // 10 min — price quotes update daily
     "/api/weather": 900,    // 15 min — weather updates every 30 min
+    "/api/alerts": 300,     // 5 min — alerts update daily via CRON
 };
 
 // ──────────────────────────── Helpers ────────────────────────────

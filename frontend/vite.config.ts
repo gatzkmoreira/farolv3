@@ -15,6 +15,7 @@ function n8nApiProxy(): Plugin {
     "/api/weather": "/weather",
     "/api/cards": "/cards",
     "/api/cotacoes": "/cotacoes",
+    "/api/alerts": "/alerts",
     "/api/event": "/event",
     "/api/feedback": "/feedback",
     "/api/healthcheck": "/ping",

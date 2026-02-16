@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Header from "@/components/farol/Header";
+import AlertTicker from "@/components/farol/AlertTicker";
 import SearchHero from "@/components/farol/SearchHero";
 import SummaryBlock from "@/components/farol/SummaryBlock";
 import NewsGrid from "@/components/farol/NewsGrid";
@@ -237,6 +238,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header onGoHome={handleGoHome} />
+      <AlertTicker />
 
       {/* Hero Search */}
       <SearchHero
