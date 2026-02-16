@@ -4,14 +4,16 @@ import { chromium } from "playwright";
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 
-// === VPS Config (1 core / 4GB) ===
+// === VPS Config ===
 const MAX_CONCURRENCY = parseInt(process.env.MAX_CONCURRENCY || "1", 10);
-const NAV_TIMEOUT_MS = parseInt(process.env.NAV_TIMEOUT_MS || "35000", 10);
+const NAV_TIMEOUT_MS = parseInt(process.env.NAV_TIMEOUT_MS || "30000", 10);
+const WATCHDOG_MS = parseInt(process.env.WATCHDOG_MS || "70000", 10);
+const BROWSER_RESTART_EVERY = parseInt(process.env.BROWSER_RESTART_EVERY || "50", 10);
 const PORT = parseInt(process.env.PORT || "3005", 10);
 
 // === Persistent Browser ===
-// One browser for the entire process lifetime. No launch/close per request.
 let browserInstance = null;
+let requestCount = 0;
 
 async function killBrowser() {
   if (browserInstance) {
@@ -21,10 +23,15 @@ async function killBrowser() {
 }
 
 async function getBrowser() {
+  // Periodic restart to prevent degradation
+  if (browserInstance && browserInstance.isConnected() && requestCount >= BROWSER_RESTART_EVERY) {
+    console.log(`[scraper] Restarting browser after ${requestCount} requests (preventive)`);
+    await killBrowser();
+    requestCount = 0;
+  }
   if (browserInstance && browserInstance.isConnected()) {
     return browserInstance;
   }
-  // Kill dead instance if any
   await killBrowser();
   console.log("[scraper] Launching persistent browser...");
   browserInstance = await chromium.launch({
@@ -51,6 +58,7 @@ async function getBrowser() {
     console.log("[scraper] Browser disconnected, will relaunch on next request");
     browserInstance = null;
   });
+  requestCount = 0;
   console.log("[scraper] Browser ready.");
   return browserInstance;
 }
@@ -86,16 +94,23 @@ function normalizeText(s) {
 
 app.get("/health", async (req, res) => {
   const connected = browserInstance?.isConnected() ?? false;
-  res.json({ ok: true, active, queued: queue.length, max: MAX_CONCURRENCY, browserConnected: connected });
+  res.json({
+    ok: true, active, queued: queue.length, max: MAX_CONCURRENCY,
+    browserConnected: connected, requestCount,
+    restartEvery: BROWSER_RESTART_EVERY,
+    watchdogMs: WATCHDOG_MS, navTimeoutMs: NAV_TIMEOUT_MS
+  });
 });
 
 // Helper: scrape a single URL with a given browser instance
 async function doScrape(browser, url, mode, opts = {}) {
+  const t0 = Date.now();
   const context = await browser.newContext({
     userAgent:
       "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
     viewport: { width: 1280, height: 800 }
   });
+  const tContext = Date.now();
 
   const page = await context.newPage();
   page.setDefaultNavigationTimeout(NAV_TIMEOUT_MS);
@@ -103,6 +118,7 @@ async function doScrape(browser, url, mode, opts = {}) {
 
   try {
     const resp = await page.goto(url, { waitUntil: "domcontentloaded" });
+    const tGoto = Date.now();
     const status = resp?.status?.() ?? null;
     await page.waitForTimeout(800);
 
@@ -455,6 +471,13 @@ async function doScrape(browser, url, mode, opts = {}) {
     const INDEX_TITLE_PATTERNS = /\b(archives?|categorias?|categories|index|home|safras\s+e?\s*mercado)\b/i;
     const isIndex = INDEX_TITLE_PATTERNS.test(cleanTitle) || wordCount < 150;
 
+    const tExtract = Date.now();
+    const timing = {
+      context_ms: tContext - t0,
+      goto_ms: tGoto - t0,
+      extract_ms: tExtract - t0,
+    };
+
     return {
       ok: true, mode, url, status,
       title: cleanTitle,
@@ -465,9 +488,12 @@ async function doScrape(browser, url, mode, opts = {}) {
       text: cleanText.slice(0, 50000),
       word_count: wordCount,
       is_index: isIndex,
+      timing,
     };
   } finally {
     await context.close().catch(() => { });
+    const tClose = Date.now();
+    console.log(`[scraper] ${mode} ${url} | total=${tClose - t0}ms`);
   }
 }
 
@@ -480,13 +506,21 @@ app.post("/scrape", async (req, res) => {
   const opts = {};
   if (praca) opts.praca = praca;
 
+  // Global watchdog: abort if request takes too long
+  let watchdogTimer;
+  const watchdogPromise = new Promise((_, reject) => {
+    watchdogTimer = setTimeout(() => {
+      reject(new Error(`Watchdog timeout after ${WATCHDOG_MS}ms for ${url}`));
+    }, WATCHDOG_MS);
+  });
+
   try {
-    const result = await runWithLimit(async () => {
+    const scrapePromise = runWithLimit(async () => {
+      requestCount++;
       let browser = await getBrowser();
       try {
         return await doScrape(browser, url, mode, opts);
       } catch (firstErr) {
-        // If browser crashed, relaunch and retry once
         const isCrash = /closed|disconnected|crashed|disposed/i.test(firstErr.message);
         if (!isCrash) throw firstErr;
         console.log(`[scraper] Browser crash detected for ${url}, relaunching...`);
@@ -496,10 +530,20 @@ app.post("/scrape", async (req, res) => {
       }
     });
 
+    const result = await Promise.race([scrapePromise, watchdogPromise]);
+    clearTimeout(watchdogTimer);
     res.json(result);
   } catch (e) {
-    console.error(`[scraper] Error scraping ${url}:`, e.message);
-    res.status(500).json({ ok: false, error: e.message });
+    clearTimeout(watchdogTimer);
+    const isWatchdog = /watchdog/i.test(e.message);
+    if (isWatchdog) {
+      console.error(`[scraper] WATCHDOG KILL for ${url} after ${WATCHDOG_MS}ms`);
+      // Force-kill browser to release stuck context
+      await killBrowser();
+    } else {
+      console.error(`[scraper] Error scraping ${url}:`, e.message);
+    }
+    res.status(isWatchdog ? 504 : 500).json({ ok: false, error: e.message, watchdog: isWatchdog });
   }
 });
 
