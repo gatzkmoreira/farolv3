@@ -223,6 +223,107 @@ async function doScrape(browser, url, mode, opts = {}) {
       };
     }
 
+    if (mode === "cepea") {
+      // CEPEA/ESALQ indicator pages: daily price tables
+      // Wait for the indicator table to load (JS-rendered)
+      await page.waitForSelector("table", { timeout: 15000 }).catch(() => { });
+      await page.waitForTimeout(2000); // CEPEA pages hydrate slowly
+
+      const data = await page.evaluate(() => {
+        // Find the main data table (usually has dates in first column)
+        const tables = document.querySelectorAll("table");
+        let priceTable = null;
+        for (const t of tables) {
+          const text = t.textContent || "";
+          // CEPEA tables typically have DD/MM/YYYY dates
+          if (/\d{2}\/\d{2}\/\d{4}/.test(text)) {
+            priceTable = t;
+            break;
+          }
+        }
+        if (!priceTable && tables.length > 0) priceTable = tables[0];
+        if (!priceTable) return { rows: [], title: null, unit: null };
+
+        // Extract page title and unit
+        const title = document.querySelector("h2.indicador, h1, .page-title, h2")?.textContent?.trim() || "";
+
+        // Try to find unit from header or page text
+        let unit = null;
+        const headerCells = priceTable.querySelectorAll("thead th, thead td, tr:first-child th, tr:first-child td");
+        for (const th of headerCells) {
+          const m = th.textContent.match(/\(([^)]+)\)/);
+          if (m) { unit = m[1].trim(); break; }
+        }
+        // Fallback: look in page text
+        if (!unit) {
+          const pageText = document.body.innerText || "";
+          const unitMatch = pageText.match(/(?:R\$\s*\/\s*(?:sc|saca|kg|@|t|arroba|lb)[\s\d]*(?:kg)?)/i);
+          if (unitMatch) unit = unitMatch[0].trim();
+        }
+
+        // Extract rows: Date | Price (R$) | Price (US$) | Var. (%)
+        const rows = [];
+        const allRows = priceTable.querySelectorAll("tbody tr, tr");
+        for (const tr of allRows) {
+          const cells = tr.querySelectorAll("td");
+          if (cells.length < 2) continue;
+
+          const cellTexts = Array.from(cells).map(c => (c.textContent || "").trim());
+
+          // First cell should be a date (DD/MM/YYYY)
+          const dateMatch = cellTexts[0].match(/(\d{2}\/\d{2}\/\d{4})/);
+          if (!dateMatch) continue;
+
+          const dateStr = dateMatch[1];
+          // Second cell is typically the R$ price
+          const priceStr = cellTexts[1];
+          // Third cell might be US$ price, fourth might be variation
+          // Or third might be variation directly
+          let variationStr = null;
+          for (let i = 2; i < cellTexts.length; i++) {
+            if (/[%]/.test(cellTexts[i]) || /^[\-+]?\d+[,.]?\d*$/.test(cellTexts[i].replace('%', ''))) {
+              variationStr = cellTexts[i];
+              break;
+            }
+          }
+
+          rows.push({ date: dateStr, price: priceStr, variation: variationStr });
+        }
+
+        return { rows, title, unit };
+      });
+
+      // Parse Brazilian number format: "1.234,56" → 1234.56
+      const parseNum = (s) => {
+        if (!s) return null;
+        const clean = s.replace(/\./g, "").replace(",", ".").replace(/[^\d.\-]/g, "");
+        const n = parseFloat(clean);
+        return isNaN(n) ? null : n;
+      };
+
+      // Parse date: "11/02/2026" → "2026-02-11"
+      const parseDate = (s) => {
+        if (!s) return null;
+        const parts = s.split("/");
+        if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(2, "0")}`;
+        return s;
+      };
+
+      const parsedRows = data.rows.map(r => ({
+        date: parseDate(r.date),
+        price_brl: parseNum(r.price),
+        variation_pct: parseNum(r.variation),
+      })).filter(r => r.date && r.price_brl !== null && r.price_brl > 0);
+
+      return {
+        ok: true, mode, url, status,
+        title: data.title,
+        unit: data.unit,
+        rows: parsedRows,
+        total_rows: parsedRows.length,
+      };
+    }
+
     if (mode === "links") {
       const links = await page.evaluate(() => {
         // Remove noise elements BEFORE extracting links (same as article mode)
