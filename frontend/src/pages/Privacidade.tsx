@@ -1,9 +1,15 @@
 import Header from "@/components/farol/Header";
 import Footer from "@/components/farol/Footer";
+import SEO from "@/components/SEO";
 
 const Privacidade = () => {
     return (
         <div className="min-h-screen bg-background">
+            <SEO
+                title="Política de Privacidade"
+                description="Política de privacidade do Farol Rural. Saiba como seus dados são tratados com transparência, anonimização e conformidade com a LGPD."
+                path="/privacidade"
+            />
             <Header />
 
             <main className="py-10 md:py-16">

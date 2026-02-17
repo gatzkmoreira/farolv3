@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Send, CheckCircle2 } from "lucide-react";
 import Header from "@/components/farol/Header";
 import Footer from "@/components/farol/Footer";
+import SEO from "@/components/SEO";
 
 const assuntos = [
     "Dúvida sobre a ferramenta",
@@ -34,6 +35,11 @@ const Contato = () => {
 
     return (
         <div className="min-h-screen bg-background">
+            <SEO
+                title="Contato"
+                description="Entre em contato com a equipe do Farol Rural. Dúvidas, sugestões, parcerias ou reportar problemas."
+                path="/contato"
+            />
             <Header />
 
             <main className="py-10 md:py-16">

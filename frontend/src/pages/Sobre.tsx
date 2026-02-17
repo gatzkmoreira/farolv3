@@ -1,9 +1,15 @@
 import Header from "@/components/farol/Header";
 import Footer from "@/components/farol/Footer";
+import SEO from "@/components/SEO";
 
 const Sobre = () => {
     return (
         <div className="min-h-screen bg-background">
+            <SEO
+                title="Sobre"
+                description="Conheça o Farol Rural: ferramenta de busca inteligente para o agronegócio brasileiro. Criada pelo grupo Olho no Agro, com +4M de visualizações no YouTube."
+                path="/sobre"
+            />
             <Header />
 
             <main className="py-10 md:py-16">
