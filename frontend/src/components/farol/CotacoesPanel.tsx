@@ -19,20 +19,20 @@ const PAGES: { title: string; emoji: string; items: ProductConfig[] }[] = [
     title: "Pecuária",
     emoji: "🐂",
     items: [
-      { product: "boi_gordo", praca: "SP", label: "Boi Gordo", pracaLabel: "SP", paymentNote: "@ à vista" },
-      { product: "novilha_gorda", praca: "SP", label: "Novilha Gorda", pracaLabel: "SP", paymentNote: "@ à vista" },
-      { product: "frango", praca: "Brasil", label: "Frango", pracaLabel: "BR" },
-      { product: "suino", praca: "Brasil", label: "Suíno", pracaLabel: "BR" },
+      { product: "boi_gordo", praca: "SP", label: "Boi Gordo", pracaLabel: "São Paulo/SP", paymentNote: "@ à vista" },
+      { product: "novilha_gorda", praca: "SP", label: "Novilha Gorda", pracaLabel: "São Paulo/SP", paymentNote: "@ à vista" },
+      { product: "frango", praca: "Brasil", label: "Frango", pracaLabel: "Brasil" },
+      { product: "suino", praca: "Brasil", label: "Suíno", pracaLabel: "Brasil" },
     ],
   },
   {
     title: "Grãos & Café",
     emoji: "🌾",
     items: [
-      { product: "soja", praca: "MT", label: "Soja", pracaLabel: "MT" },
-      { product: "milho", praca: "MT", label: "Milho", pracaLabel: "MT" },
-      { product: "cafe_arabica", praca: "SP", label: "Café Arábica", pracaLabel: "SP" },
-      { product: "trigo", praca: "PR", label: "Trigo", pracaLabel: "PR" },
+      { product: "soja", praca: "PR", label: "Soja", pracaLabel: "Castro/PR" },
+      { product: "milho", praca: "PR", label: "Milho", pracaLabel: "Castro/PR" },
+      { product: "cafe_arabica", praca: "BR", label: "Café Arábica", pracaLabel: "Brasil (CEPEA)" },
+      { product: "trigo", praca: "PR", label: "Trigo", pracaLabel: "Castro/PR" },
     ],
   },
 ];
@@ -104,9 +104,18 @@ const CotacoesPanel = () => {
       .then((data) => {
         if (!cancelled) {
           setRows(data);
-          setLastUpdate(
-            new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-          );
+          // Show the actual latest quote_date from the data, not browser clock
+          const dates = data
+            .map((r) => r.quote_date)
+            .filter(Boolean)
+            .sort()
+            .reverse();
+          if (dates.length > 0) {
+            const [y, m, d] = dates[0].split("-");
+            setLastUpdate(`Dados de ${d}/${m}/${y}`);
+          } else {
+            setLastUpdate("Sem dados disponíveis");
+          }
         }
       })
       .catch((err) => console.warn("[CotacoesPanel] fetch failed:", err))
@@ -233,7 +242,7 @@ const CotacoesPanel = () => {
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
-          {lastUpdate ? `Atualizado às ${lastUpdate}` : "Carregando..."}
+          {lastUpdate || "Carregando..."}
         </p>
       </div>
     </div>

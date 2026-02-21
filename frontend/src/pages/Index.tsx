@@ -89,7 +89,7 @@ const Index = () => {
 
   useEffect(() => {
     let cancelled = false;
-    apiFetch<unknown>("/api/cards?limit=20")
+    apiFetch<unknown>("/api/cards?limit=33")
       .then((data) => {
         if (!cancelled) setAllCards(transformCards(data));
       })
@@ -240,7 +240,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <SEO path="/" />
       <Header onGoHome={handleGoHome} />
-      <AlertTicker />
+      {/* <AlertTicker /> — temporarily hidden until smart alert strategy is ready */}
 
       {/* Hero Search */}
       <SearchHero
