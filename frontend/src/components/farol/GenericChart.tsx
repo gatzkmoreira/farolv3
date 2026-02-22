@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import {
     ResponsiveContainer,
+    ComposedChart,
     LineChart,
     BarChart,
     AreaChart,
@@ -66,6 +67,45 @@ const SingleChart = ({ config }: { config: ChartConfig }) => {
             );
         }
 
+        if (config.type === "bar_stacked") {
+            return (
+                <BarChart {...commonProps}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis dataKey={config.xKey} tick={{ fontSize: 10 }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    {config.yKeys.map((yk) => (
+                        <Bar key={yk.key} dataKey={yk.key} name={yk.label} fill={yk.color} stackId="a" maxBarSize={28} opacity={0.85} />
+                    ))}
+                </BarChart>
+            );
+        }
+
+        if (config.type === "line_dual") {
+            // Dual-axis chart: left axis for price, right axis for exchange rate
+            const leftKeys = config.yKeys.filter((yk) => yk.axis === "left" || !yk.axis);
+            const rightKeys = config.yKeys.filter((yk) => yk.axis === "right");
+            return (
+                <ComposedChart {...commonProps}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis dataKey={config.xKey} tick={{ fontSize: 10 }} tickLine={false} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                    {rightKeys.length > 0 && (
+                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                    )}
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    {leftKeys.map((yk) => (
+                        <Line key={yk.key} yAxisId="left" type="monotone" dataKey={yk.key} name={yk.label} stroke={yk.color} strokeWidth={2} dot={false} activeDot={{ r: 3 }} />
+                    ))}
+                    {rightKeys.map((yk) => (
+                        <Line key={yk.key} yAxisId="right" type="monotone" dataKey={yk.key} name={yk.label} stroke={yk.color} strokeWidth={1.5} dot={false} strokeDasharray="4 2" activeDot={{ r: 2 }} />
+                    ))}
+                </ComposedChart>
+            );
+        }
+
         if (config.type === "area") {
             return (
                 <AreaChart {...commonProps}>
@@ -121,7 +161,7 @@ const SingleChart = ({ config }: { config: ChartConfig }) => {
 const GenericChart = ({ charts }: GenericChartProps) => {
     if (!charts || charts.length === 0) return null;
 
-    // Max 2 charts per response-standards spec
+    // Up to 2 charts per response (3rd only for very specific structural queries)
     const visible = charts.slice(0, 2);
 
     return (

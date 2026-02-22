@@ -112,7 +112,7 @@ const CotacoesPanel = () => {
             .reverse();
           if (dates.length > 0) {
             const [y, m, d] = dates[0].split("-");
-            setLastUpdate(`Dados de ${d}/${m}/${y}`);
+            setLastUpdate(`Última atualização da fonte: ${d}/${m}`);
           } else {
             setLastUpdate("Sem dados disponíveis");
           }

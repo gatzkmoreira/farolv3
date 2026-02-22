@@ -179,8 +179,14 @@ const NewsDrawer = ({ card, isOpen, onClose }: NewsDrawerProps) => {
       />
 
       {/* Centered Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="relative w-full max-w-2xl max-h-[85vh] bg-card rounded-2xl shadow-farol-xl flex flex-col">
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <div
+          className="relative w-full max-w-2xl max-h-[85vh] bg-card rounded-2xl shadow-farol-xl flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Header */}
           <div className="flex-shrink-0 bg-card border-b border-border px-8 py-5 flex items-center justify-between rounded-t-2xl">
             <div className="flex items-center gap-3">
