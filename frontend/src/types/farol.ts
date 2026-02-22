@@ -33,14 +33,16 @@ export interface ChartYKey {
   key: string;
   label: string;
   color: string;
+  axis?: 'left' | 'right';
 }
 
 export interface ChartConfig {
-  type: 'line' | 'bar' | 'area';
+  type: 'line' | 'bar' | 'area' | 'bar_stacked' | 'line_dual';
   title: string;
   xKey: string;
   yKeys: ChartYKey[];
   data: Record<string, unknown>[];
+  meta?: Record<string, unknown>;
 }
 
 export interface APISearchData {
